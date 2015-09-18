@@ -4,8 +4,6 @@ QBuffer
 fast binary stream buffer, to be able to merge and re-split chunked binary data
 
 
-Methods
--------
 
 ### new QBuffer( opts )
 
@@ -13,15 +11,21 @@ Options:
 - highWaterMark
 - lowWaterMark
 
+### buf.length
+
+The number of unrad bytes currently in the buffer.
+
 ### buf.getline( )
 
-Remove and return the next newline-terminated line from the buffer, or null if
-no complete line present.  The newline is included as part of the line.
+Remove and return the next record from the buffer, or null if no complete line
+is present.  By default records are newline terminated characters, with the
+newline included as part of the record.
 
 ### buf.peekline( )
 
-Just like `getline`, but do not advance the read point, do not remove the bytes
-returned.  Calling `peekline` a second time will return the same line again.
+Just like `getline`, but do not advance the read point, do not consume the
+returned bytes.  Calling `peekline` a second time will return the same line
+again.
 
 ### buf.read( nbytes )
 

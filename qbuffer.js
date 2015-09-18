@@ -17,18 +17,20 @@ function QBuffer( opts ) {
     opts = opts || {}
     this.highWaterMark = opts.highWaterMark || 1024000
     this.lowWaterMark = opts.lowWaterMark || 40960
+    this.encoding = opts.encoding || null
     this.start = 0
     this.length = 0
     this.chunks = new Array()
     this.chunk = null
+    return this
 }
 
 QBuffer.prototype = {
     highWaterMark: null,
     lowWaterMark: null,
+    encoding: undefined,
     start: 0,
     length: 0,
-    encoding: undefined,
 
     chunks: null,
     chunk: null,
@@ -39,7 +41,18 @@ QBuffer.prototype = {
         return this
     },
 
-    // read the next newline-delimited string form the buffer
+/***
+    // customize the record delimiter.  The default up to and including the first newline "\n"
+    setDelimiter:
+    function setDelimiter( delimiterConfig ) {
+        // TBD:
+        // eg a min num bytes needed and a filter function on those bytes to look for the end of the record
+        // for newlines (min bytes 1), or bson object (min bytes 5)
+        return this
+    },
+***/
+
+    // retrieve the next record (newline-terminated string) form the buffer
     getline:
     function getline( ) {
         var eol = this._indexOfCharcode("\n".charCodeAt(0))
@@ -47,6 +60,7 @@ QBuffer.prototype = {
         return this.read(eol - this.start + 1)
     },
 
+    // copy out, but do not consume, the next record from the buffer
     peekline:
     function peekline( ) {
         var eol = this._indexOfCharcode("\n".charCodeAt(0))
@@ -58,7 +72,13 @@ QBuffer.prototype = {
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
     read:
-    function read( nbytes ) {
+    function read( nbytes, encoding, cb ) {
+        if (!cb && typeof encoding === 'function') {
+            cb = encoding
+            encoding = null
+        }
+        // TODO: if callback provided and no data yet, queue reader and complete read later
+        encoding = encoding || this.encoding
         if (nbytes > this.length) return null
         if (!nbytes) nbytes = this.length
 
@@ -69,7 +89,7 @@ QBuffer.prototype = {
         this.length -= chunk.length
         this.start = (bound < this.chunks[0].length) ? bound : (this.chunks.shift(), 0)
 
-        return this.encoding ? chunk.toString(this.encoding) : chunk
+        return encoding ? chunk.toString(encoding) : chunk
     },
 
     peekbytes:
