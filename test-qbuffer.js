@@ -1,9 +1,69 @@
 var QBuffer = require('./index')
 
 module.exports = {
-    'should parse package.json': function(t) {
-        require('./package.json')
-        t.done();
+    setUp: function(done) {
+        this.cut = new QBuffer()
+        done()
+    },
+
+    'package': {
+        'package.json should parse': function(t) {
+            require('./package.json')
+            t.done();
+        },
+    },
+
+    'write': {
+        'should append buffers to chunks': function(t) {
+            this.cut.write(new Buffer("123"))
+            t.ok(this.cut.chunks.length > 0)
+            t.done()
+        },
+
+        'should convert strings to buffers': function(t) {
+            this.cut.write("456")
+            t.deepEqual(this.cut.chunks[0], new Buffer("456"))
+            t.done()
+        },
+
+        'should increment length': function(t) {
+            t.equal(this.cut.length, 0)
+            this.cut.write("1")
+            t.equal(this.cut.length, 1)
+            this.cut.write("23")
+            t.equal(this.cut.length, 3)
+            this.cut.write("\x80\x81", 'utf8')
+            t.equal(this.cut.length, 7)
+            t.done()
+        },
+
+        'should convert using specified encoding': function(t) {
+            this.cut.write("NDU2", 'base64')
+            t.deepEqual(this.cut.chunks[0], new Buffer("456"))
+            t.done()
+        },
+
+        'should invoke callback if specified': function(t) {
+            var cut = this.cut
+            t.expect(2)
+            cut.write("NDU2", 'base64', function(err, nbytes) {
+                t.ifError(err)
+                cut.write("78", function(err, nbytes) {
+                    t.ifError(err)
+                    t.done()
+                })
+            })
+        },
+    },
+
+    'read': {
+        'should retrieve content from separate Buffers': function(t) {
+            this.cut.write(new Buffer("test"))
+            this.cut.write(new Buffer("1"))
+            var str = this.cut.read(5)
+            t.deepEqual(str, new Buffer("test1"))
+            t.done()
+        },
     },
 
     'speed test': {
