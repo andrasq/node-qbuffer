@@ -1,8 +1,9 @@
 QBuffer
 =======
 
-fast binary stream buffer, to be able to merge and re-split chunked binary data
+fast binary stream buffer, to be able to coalesce then re-split chunked binary data
 
+WORK IN PROGRESS
 
 
 ### new QBuffer( opts )
