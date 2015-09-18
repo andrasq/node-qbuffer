@@ -1,8 +1,14 @@
 /**
  * qbuffer -- buffered binary datastream for piping, buffering and rechunking
  *
+ * Copyright (C) 2015 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ *
  * 2015-09-15
  */
+
+
+'use strict'
 
 var util = require('util')
 var EventEmitter = require('events').EventEmitter
@@ -31,23 +37,6 @@ QBuffer.prototype = {
     function setEncoding( encoding ) {
         this.encoding = encoding
         return this
-    },
-
-    // skip past and discard the next nbytes bytes of input
-    _skip:
-    function _skip( nbytes ) {
-        var bound = this.start + nbytes
-        while (this.chunks.length > 0) {
-            if (bound > this.chunks[0].length) {
-                var chunk = this.chunks.shift()
-                bound -= chunk.length
-                this.start = 0
-            }
-            else {
-                this.start = bound
-                return
-            }
-        }
     },
 
     // read the next newline-delimited string form the buffer
@@ -83,14 +72,29 @@ QBuffer.prototype = {
         return this.encoding ? chunk.toString(this.encoding) : chunk
     },
 
+    peekbytes:
+    function peekbytes( nbytes, encoding ) {
+        encoding = encoding || this.encoding
+        var bound = this.start + nbytes
+        var chunk = this._concat(bound)
+        if (chunk) return this.encoding ? chunk.toString(encoding, this.start, bound) : chunk.slice(this.start, bound)
+        else return null
+    },
+
     // append more data to the buffered contents
     write:
-    function write( chunk, cb ) {
-        if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, this.encoding)
+    function write( chunk, encoding, cb ) {
+        if (!cb && typeof encoding === 'function') {
+            cb = encoding
+            encoding = undefined
+        }
+        if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.encoding)
         this.chunks.push(chunk)
         this.length += chunk.length
         // TODO: time copy into preallocate buffer, to pre-merge bufs
         // and not allocate many small buffers one for each input string
+
+        if (cb) cb(null, chunk.length)
 
         // return true if willing to buffer more, false to throttle input
         return this.length < this.highWaterMark
@@ -110,7 +114,26 @@ QBuffer.prototype = {
         return -1
     },
 
-    // merge Buffers until bound is inside the first one, to be able to subset
+    // skip past and discard the next nbytes bytes of input
+    _skip:
+    function _skip( nbytes ) {
+        var bound = this.start + nbytes
+        while (bound > 0 && this.length > 0) {
+            if (bound >= this.chunks[0].length) {
+                var chunk = this.chunks.shift()
+                bound -= chunk.length
+                this.length -= (chunk.length - this.start)
+                this.start = 0
+            }
+            else {
+                this.start = bound
+                return
+            }
+        }
+    },
+
+    // merge Buffers until bound is contained inside the first buffer
+    // returns the first chunk, now larger, or null if no data
     _concat:
     function _concat( bound ) {
         var chunks = this.chunks
