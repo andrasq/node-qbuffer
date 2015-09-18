@@ -1,11 +1,11 @@
 {
   "name": "qbuffer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "quick buffer to combine and re-split binary streams",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/andrasq/qnode-qbuffer"
+    "url": "git://github.com/andrasq/node-qbuffer"
   },
   "main": "index.js",
   "author": {

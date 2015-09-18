@@ -65,9 +65,9 @@ QBuffer.prototype = {
     function peekline( ) {
         var eol = this._indexOfCharcode("\n".charCodeAt(0))
         if (eol === -1) return null
-        if (eol < this.chunks[0].length) this._concat(eol)
-        var chunk = this.chunks[0].slice(this.start, eol + 1)
-        return this.encoding ? chunk.toString(this.encoding) : chunk
+        var bound = eol + 1
+        var chunk = (bound < this.chunks[0].length) ? this.chunks[0] : this._concat(bound)
+        return this.encoding ? chunk.toString(this.encoding, this.start, bound) : chunk.slice(this.start, bound)
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
@@ -84,11 +84,13 @@ QBuffer.prototype = {
 
         var bound = this.start + nbytes
         if (this.chunks[0].length < bound) this._concat(bound)
+        if (this.chunks[0].length < bound) return null
 
         var chunk = this.chunks[0].slice(this.start, bound)
         this.length -= chunk.length
         this.start = (bound < this.chunks[0].length) ? bound : (this.chunks.shift(), 0)
 
+        // if (this.length < this.lowWaterMark && this.length + nbytes > this.lowWaterMark) this.emit('drain')
         return encoding ? chunk.toString(encoding) : chunk
     },
 
@@ -101,6 +103,11 @@ QBuffer.prototype = {
         else return null
     },
 
+    _read:
+    function _read( nbytes ) {
+        return this.read(nbytes)
+    },
+
     // append more data to the buffered contents
     write:
     function write( chunk, encoding, cb ) {
@@ -111,8 +118,8 @@ QBuffer.prototype = {
         if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.encoding)
         this.chunks.push(chunk)
         this.length += chunk.length
-        // TODO: time copy into preallocate buffer, to pre-merge bufs
-        // and not allocate many small buffers one for each input string
+        // TODO: timeit: copy into preallocated buffer, to pre-merge bufs and
+        // not allocate many small buffers one for each input string
 
         if (cb) cb(null, chunk.length)
 
@@ -153,32 +160,26 @@ QBuffer.prototype = {
     },
 
     // merge Buffers until bound is contained inside the first buffer
-    // returns the first chunk, now larger, or null if no data
+    // returns the first chunk, now larger, or null if not enough data
     _concat:
     function _concat( bound ) {
         if (this.length < bound) return null
         var chunks = this.chunks
-        var len = 0, nchunks
-        if (chunks.length < bound) return false
-        for (nchunks=0; len < bound && nchunks < chunks.length; nchunks++) {
+
+        var len = 0, nchunks = 0
+        while (len < bound) {
             len += chunks[nchunks].length
+            nchunks += 1
         }
-        chunk = chunks.unshift(Buffer.concat(chunks.splice(0, nchunks)))
-        // TODO: might be faster to copy into a new Buffer and just shift off the chunks
-        // var buf = new Buffer(bound - this.start)
-        // for (i=0; i<nchunks; i++) { chunk = this.chunks.shift(); chunk.copy(buf, buf.length) }
-        return chunk
+
+        // optimize degenerate case when first chunk already holds all the data
+        if (nchunks === 1) return chunks[0]
+
+        // replace the first nchunks chunks with their merged contents, using a temporary placeholder
+        // TODO: timeit: might be faster to just shift off the chunks and copy into a preallocated Buffer
+        var chunk = Buffer.concat(chunks.splice(0, nchunks, ['placeholder']))
+        return chunks[0] = chunk
     }
-
-/***
-
-    peek(nbytes)
-
-    shift(bound)
-
-    unshift(bytes)
-
-***/
 }
 
 
