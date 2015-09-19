@@ -10,12 +10,15 @@ control.  It buffers incoming data on write, but reading happens when
 the code is ready for the data, not when the data happens to arrive.
 
 
+Summary
+-------
+
         var assert = require('assert')
         var http = require('http')
         var QBuffer = require('qbuffer')
 
         var qbuf = new QBuffer()
-        http.request("http://example.com/retrieve/json/lines", function(res) {
+        http.request("http://example.com/get/json/lines", function(res) {
             res.on('data', function(chunk) {
                 qbuf.write(chunk)
             })
@@ -28,6 +31,9 @@ the code is ready for the data, not when the data happens to arrive.
             })
         })
 
+
+Methods
+-------
 
 ### new QBuffer( opts )
 
@@ -63,9 +69,9 @@ Just like read, but do not advance the read point past the bytes returned.
 ### buf.indexOfChar( char, start )
 
 Return the offset in the unread data of the first occurrence of char at
-offset `start` or after in the data stream.
+or after offset `start` in the data stream.
 
-With this call `getline` can be implemented as `buf.read(buf.indexOfChar("\n"))`
+With this call getline() can be implemented as `buf.read(buf.indexOfChar("\n") + 1)`
 
 ### buf.setEncoding( encoding )
 
@@ -90,4 +96,4 @@ Todo
 Related Work
 ------------
 
-`[split](http://npmjs.com/package/split)` - very fast regex-delimited text stream re-splitter
+- [split](http://npmjs.com/package/split) - very fast regex-delimited text stream re-splitter
