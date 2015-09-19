@@ -100,7 +100,7 @@ Todo
 
 - unit tests
 - make pipable (event emitter), if no performance penalty
-- setDelimiter() method for use-specified record splitting
+- setDelimiter() method for user-specified record splitting
 - indexOf() method
 
 
