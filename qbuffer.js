@@ -51,7 +51,21 @@ QBuffer.prototype = {
         // for newlines (min bytes 1), or bson object (min bytes 5)
         return this
     },
+
+    indexOf:
+    function indexOf( string, start ) {
+        start = this.start + (start === undefined) ? 0 : start
+        var pos = this._findSubstring(string, start)
+        return pos >= 0 ? pos - this.start : -1
+    },
 ***/
+
+    indexOfChar:
+    function indexOfChar( char, start ) {
+        start = start || 0
+        var pos = this._indexOfCharcode(char.charCodeAt(0), start + this.start)
+        return pos === -1 ? -1 : pos - this.start
+    },
 
     // retrieve the next record (newline-terminated string) form the buffer
     getline:
@@ -66,9 +80,7 @@ QBuffer.prototype = {
     function peekline( ) {
         var eol = this._indexOfCharcode("\n".charCodeAt(0))
         if (eol === -1) return null
-        var bound = eol + 1
-        var chunk = (bound < this.chunks[0].length) ? this.chunks[0] : this._concat(bound)
-        return this.encoding ? chunk.toString(this.encoding, this.start, bound) : chunk.slice(this.start, bound)
+        return this._peekbytes(eol + 1, this.encoding)
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
@@ -84,24 +96,23 @@ QBuffer.prototype = {
         if (!nbytes) nbytes = this.length
 
         var bound = this.start + nbytes
-        if (this.chunks[0].length < bound) this._concat(bound)
-        if (this.chunks[0].length < bound) return null
-
-        var chunk = this.chunks[0].slice(this.start, bound)
-        this.length -= chunk.length
-        this.start = (bound < this.chunks[0].length) ? bound : (this.chunks.shift(), 0)
-
-        // if (this.length < this.lowWaterMark && this.length + nbytes > this.lowWaterMark) this.emit('drain')
-        return encoding ? chunk.toString(encoding) : chunk
+        var ret = this._peekbytes(bound, encoding)
+        if (ret === null) return null
+        this._skipbytes(bound)
+        return ret
     },
 
     peekbytes:
     function peekbytes( nbytes, encoding ) {
-        encoding = encoding || this.encoding
-        var bound = this.start + nbytes
-        var chunk = this._concat(bound)
-        if (chunk) return this.encoding ? chunk.toString(encoding, this.start, bound) : chunk.slice(this.start, bound)
-        else return null
+        return this._peekbytes(this.start + nbytes, encoding || this.encoding)
+    },
+
+    _peekbytes:
+    function _peekbytes( bound, encoding ) {
+        if (!this.chunks.length) return null
+        var chunk = (bound <= this.chunks[0].length) ? this.chunks[0] : this._concat(bound)
+        if (!chunk) return null
+        return encoding ? chunk.toString(encoding, this.start, bound) : chunk.slice(this.start, bound)
     },
 
     _read:
@@ -109,7 +120,7 @@ QBuffer.prototype = {
         return this.read(nbytes)
     },
 
-    // append more data to the buffered contents
+    // append data to the buffered contents
     write:
     function write( chunk, encoding, cb ) {
         if (!cb && typeof encoding === 'function') {
@@ -130,29 +141,42 @@ QBuffer.prototype = {
 
     // find the offset of the first char in the buffered data
     _indexOfCharcode:
-    function _indexOfCharcode( ch, start ) {
+    function _indexOfCharcode( code, start ) {
         // must be called with start >= this.start
-        var start = start || this.start
-        if (this.chunks.length === 0) return -1
-        var i, pos, offset = 0, chunk
-        for (i=0, pos=start; i<this.chunks.length; i++, offset+=chunk.length, pos=0) {
+        start = start || this.start
+        var i, j, offset = 0, chunk
+        for (i=0; i<this.chunks.length; i++) {
             chunk = this.chunks[i]
-            if (pos >= chunk.length) {
-                pos -= chunk.length
-                continue
+            if (start >= chunk.length) {
+                // advance to the chunk containing start
+                start -= chunk.length
+                offset += chunk.length
             }
-            for (; pos<chunk.length; pos++) {
-                if (chunk[pos] === ch) return offset + pos
+            else {
+                for (j=start; j<chunk.length; j++) {
+                    // then scan that chunk for the first instance of code
+                    if (chunk[j] === code) return offset + j
+                }
+                // if scanned a chunk, scan the next from its very beginning
+                offset += chunk.length
+                start = 0
             }
         }
         return -1
     },
 
-    // skip past and discard the next nbytes bytes of input
-    _skip:
-    function _skip( nbytes ) {
-        var bound = this.start + nbytes
-        while (bound > 0 && this.length > 0) {
+/***
+    // find the offset of the first occurrence of the substring not before start
+    _findSubstring:
+    function _findSubstring( substring, start ) {
+        // TODO: WRITEME
+    },
+***/
+
+    // skip past and discard all buffered bytes until bound
+    _skipbytes:
+    function _skipbytes( bound ) {
+        while (this.length > 0) {
             if (bound >= this.chunks[0].length) {
                 var chunk = this.chunks.shift()
                 bound -= chunk.length
@@ -160,6 +184,7 @@ QBuffer.prototype = {
                 this.start = 0
             }
             else {
+                this.length -= (bound - this.start)
                 this.start = bound
                 return
             }
@@ -167,7 +192,7 @@ QBuffer.prototype = {
     },
 
     // merge Buffers until bound is contained inside the first buffer
-    // returns the first chunk, now larger, or null if not enough data
+    // returns the first Buffer, now larger, or null if not enough data
     _concat:
     function _concat( bound ) {
         if (this.length < bound) return null

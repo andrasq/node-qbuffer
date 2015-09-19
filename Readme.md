@@ -1,13 +1,13 @@
 QBuffer
 =======
 
-fast binary stream buffer, to be able to coalesce then re-split chunked binary data
+Fast binary stream buffer, to be able to coalesce then re-split chunked binary data.
+Handy for concatenated byte-counted binary or mixed text/binary data like BSON entities
+or beanstalkd responses.
 
 For easier throttling and event loop control, QBuffer implements pull-based flow
 control.  It buffers incoming data on write, but reading happens when
 the code is ready for the data, not when the data happens to arrive.
-
-WORK IN PROGRESS
 
 
         var assert = require('assert')
@@ -27,6 +27,7 @@ WORK IN PROGRESS
                 assert(qbuf.length === 0)
             })
         })
+
 
 ### new QBuffer( opts )
 
@@ -59,6 +60,13 @@ many bytes available.
 
 Just like read, but do not advance the read point past the bytes returned.
 
+### buf.indexOfChar( char, start )
+
+Return the offset in the unread data of the first occurrence of char at
+offset `start` or after in the data stream.
+
+With this call `getline` can be implemented as `buf.read(buf.indexOfChar("\n"))`
+
 ### buf.setEncoding( encoding )
 
 Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Specifyng an
@@ -77,3 +85,9 @@ Todo
 
 - unit tests
 - make pipable (event emitter), if no performance penalty
+
+
+Related Work
+------------
+
+`[split](http://npmjs.com/package/split)` - very fast regex-delimited text stream re-splitter

@@ -152,6 +152,34 @@ TBD:
         },
     },
 
+    'indexOfChar': {
+        'should offset for start and call _indexOfCharcode': function(t) {
+            var called = false, oldIndexOf = this.cut._indexOfCharcode
+            var cut = this.cut
+            cut._indexOfCharcode = function(ch,start) {
+                called = true
+                t.equal(ch, "\n".charCodeAt(0))
+                t.equal(start, 6)
+                return oldIndexOf.call(cut, ch, start)
+            }
+            cut.write("test1\ntest2\n")
+            cut.read(3)
+            t.equal(cut.indexOfChar("\n", 3), 8)
+            t.equal(called, true)
+            t.done()
+        },
+
+        'should work like getline': function(t) {
+            this.cut.write("test1\ntest")
+            this.cut.write("2\ntest3\ntest4")
+            this.cut.setEncoding('utf8')
+            t.equal(this.cut.read(this.cut.indexOfChar("\n")+1), "test1\n")
+            t.equal(this.cut.read(this.cut.indexOfChar("\n")+1), "test2\n")
+            t.equal(this.cut.read(this.cut.indexOfChar("\n")+1), "test3\n")
+            t.done()
+        },
+    },
+
     '_indexOfCharcode': {
         'locates char': function(t) {
             var nl = "\n".charCodeAt(0)
@@ -168,6 +196,17 @@ TBD:
             t.done()
         },
 
+        'locates char at offset across chunks': function(t) {
+            this.cut.write("test1\ntest")
+            this.cut.write("2\ntest3\ntest4")
+            this.cut.write("\n")
+            t.equal(this.cut._indexOfCharcode(10), 5)
+            t.equal(this.cut._indexOfCharcode(10, 6), 11)
+            t.equal(this.cut._indexOfCharcode(10, 12), 17)
+            t.equal(this.cut._indexOfCharcode(10, 18), 23)
+            t.done()
+        },
+
         'returns -1 if char not found': function(t) {
             t.equal(this.cut._indexOfCharcode(1), -1)
             t.done()
@@ -179,27 +218,31 @@ TBD:
             var b = new QBuffer()
             var i
 
-            var s200 = new Array(200).join('x') + "\n"
-            var s1k = new Array(1001).join(s200)
+            var s200 = new Array(200).join('x') + "\n"  // 200B lines
+            var s1k = new Array(251).join(s200)         // in 50k chunks
 
             b.write("line1\nline2\nline3\nline4\n")
-            for (i=0; i<100; i++) b.write(s1k)
+            for (i=0; i<400; i++) b.write(s1k)          // 100k lines total
 
             console.log(b.getline())
-            //b.setEncoding('utf8')
+            expectChar = 'x'.charCodeAt(0)
+            b.setEncoding('utf8'); expectChar = 'x'
             console.log(b.getline())
             console.log(b.getline())
             console.log(b.getline())
 
             var t1 = Date.now()
-            for (var i=0; i<100000; i++) { var line = b.getline(); if (line.length !== 200) console.log("FAIL") }
+            //for (var i=0; i<100000; i++) { var line = b.getline(); if (line.length !== s200.length) console.log("FAIL") }
+            var line
+            for (var i=0; i<100000; i++) { line = b.read(b.indexOfChar("\n")+1); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
             var t2 = Date.now()
+            console.log("AR: last line", line)
             console.log("100k getline in %d", t2 - t1)
             console.log(b)
             t.done()
 
-            // 750k 200B lines per second, not quite as fast as qfgets (utf8)
-            // 1.2m 200B buffers per second, faster than qfgets (binary)
+            // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines)
+            // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers)
         }
     },
 }
