@@ -38,8 +38,8 @@ Methods
 ### new QBuffer( opts )
 
 Options:
-- highWaterMark
-- lowWaterMark
+- `highWaterMark` - when to ask that input be throttled
+- `lowWaterMark` - TBD
 
 ### buf.length
 
