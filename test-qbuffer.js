@@ -218,27 +218,35 @@ TBD:
             var b = new QBuffer()
             var i
 
+            var encoding = 'utf8'
+
             var s200 = new Array(200).join('x') + "\n"  // 200B lines
             var s1k = new Array(251).join(s200)         // in 50k chunks
+
+            var expectChar, expectLine
+            if (!encoding) { expectChar = 'x'.charCodeAt(0) ; expectLine = new Buffer(s200) }
+            else { expectChar = 'x' ; expectLine = s200 }
 
             b.write("line1\nline2\nline3\nline4\n")
             for (i=0; i<400; i++) b.write(s1k)          // 100k lines total
 
-            console.log(b.getline())
-            expectChar = 'x'.charCodeAt(0)
-            b.setEncoding('utf8'); expectChar = 'x'
-            console.log(b.getline())
-            console.log(b.getline())
-            console.log(b.getline())
+            t.deepEqual(b.getline(), new Buffer("line1\n"))
+            b.setEncoding(encoding)                     // null for Buffers, 'utf8' for strings
+            t.deepEqual(b.getline(), encoding ? "line2\n" : new Buffer("line2\n"))
+            t.deepEqual(b.getline(), encoding ? "line3\n" : new Buffer("line3\n"))
+            t.deepEqual(b.getline(), encoding ? "line4\n" : new Buffer("line4\n"))
 
             var t1 = Date.now()
             //for (var i=0; i<100000; i++) { var line = b.getline(); if (line.length !== s200.length) console.log("FAIL") }
             var line
             for (var i=0; i<100000; i++) { line = b.read(b.indexOfChar("\n")+1); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
             var t2 = Date.now()
-            console.log("AR: last line", line)
+            t.deepEqual(line, expectLine)
             console.log("100k getline in %d", t2 - t1)
-            console.log(b)
+            // also spot-check check internal qbuffer state, should be completely empty
+            t.equal(b.length, 0)
+            t.deepEqual(b.chunks, [])
+            t.deepEqual(b.encoding, encoding)
             t.done()
 
             // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines)
