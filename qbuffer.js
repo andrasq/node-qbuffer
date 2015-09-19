@@ -14,6 +14,7 @@ var util = require('util')
 var EventEmitter = require('events').EventEmitter
 
 function QBuffer( opts ) {
+    if (this === global || !this) return new QBuffer(opts)
     opts = opts || {}
     this.highWaterMark = opts.highWaterMark || 1024000
     this.lowWaterMark = opts.lowWaterMark || 40960
@@ -57,7 +58,7 @@ QBuffer.prototype = {
     function getline( ) {
         var eol = this._indexOfCharcode("\n".charCodeAt(0))
         if (eol === -1) return null
-        return this.read(eol - this.start + 1)
+        return this.read(eol + 1 - this.start)
     },
 
     // copy out, but do not consume, the next record from the buffer
@@ -129,11 +130,17 @@ QBuffer.prototype = {
 
     // find the offset of the first char in the buffered data
     _indexOfCharcode:
-    function _indexOfCharcode( ch ) {
+    function _indexOfCharcode( ch, start ) {
+        // must be called with start >= this.start
+        var start = start || this.start
         if (this.chunks.length === 0) return -1
         var i, pos, offset = 0, chunk
-        for (i=0, pos=this.start; i<this.chunks.length; i++, offset+=chunk.length, pos=0) {
+        for (i=0, pos=start; i<this.chunks.length; i++, offset+=chunk.length, pos=0) {
             chunk = this.chunks[i]
+            if (pos >= chunk.length) {
+                pos -= chunk.length
+                continue
+            }
             for (; pos<chunk.length; pos++) {
                 if (chunk[pos] === ch) return offset + pos
             }

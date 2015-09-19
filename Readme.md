@@ -3,6 +3,10 @@ QBuffer
 
 fast binary stream buffer, to be able to coalesce then re-split chunked binary data
 
+For easier throttling and event loop control, QBuffer implements pull-based flow
+control.  It buffers incoming data on write, but reading happens when
+the code is ready for the data, not when the data happens to arrive.
+
 WORK IN PROGRESS
 
 
