@@ -6,6 +6,24 @@ fast binary stream buffer, to be able to coalesce then re-split chunked binary d
 WORK IN PROGRESS
 
 
+        var assert = require('assert')
+        var http = require('http')
+        var QBuffer = require('qbuffer')
+
+        var qbuf = new QBuffer()
+        http.request("http://example.com/retrieve/json/lines", function(res) {
+            res.on('data', function(chunk) {
+                qbuf.write(chunk)
+            })
+            res.on('end', function() {
+                var line, json
+                while ((line = qbuf.getline()) !== null) {
+                    json = JSON.parse(line)
+                }
+                assert(qbuf.length === 0)
+            })
+        })
+
 ### new QBuffer( opts )
 
 Options:

@@ -1,6 +1,6 @@
 {
   "name": "qbuffer",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "quick buffer to combine and re-split binary streams",
   "license": "Apache-2.0",
   "repository": {
