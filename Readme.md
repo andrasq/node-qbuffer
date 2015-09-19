@@ -57,14 +57,15 @@ Just like `getline`, but do not advance the read point, do not consume the
 returned bytes.  Calling `peekline` a second time will return the same line
 again.
 
-### buf.read( nbytes )
+### buf.read( nbytes [,encoding] )
 
 Remove and return the next nbytes bytes from the buffer, or null if not that
-many bytes available.
+many bytes available.  If no encoding is specified, returns a Buffer, else
+returns a string converted using the specified encoding.
 
-### buf.peekbytes( nbytes )
+### buf.peekbytes( nbytes [,encoding] )
 
-Just like read, but do not advance the read point past the bytes returned.
+Just like read, but do not advance the read point.
 
 ### buf.indexOfChar( char, start )
 
@@ -91,6 +92,8 @@ Todo
 
 - unit tests
 - make pipable (event emitter), if no performance penalty
+- setDelimiter() method for use-specified record splitting
+- indexOf() method
 
 
 Related Work

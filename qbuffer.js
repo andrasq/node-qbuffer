@@ -91,6 +91,7 @@ QBuffer.prototype = {
             encoding = null
         }
         // TODO: if callback provided and no data yet, queue reader and complete read later
+        // TODO: actually invoke callback TBD
         encoding = encoding || this.encoding
         if (nbytes > this.length) return null
         if (!nbytes) nbytes = this.length
