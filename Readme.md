@@ -60,8 +60,8 @@ again.
 ### buf.read( nbytes [,encoding] )
 
 Remove and return the next nbytes bytes from the buffer, or null if not that
-many bytes available.  If no encoding is specified, returns a Buffer, else
-returns a string converted using the specified encoding.
+many bytes available.  Returns a string converted with the given encoding
+or specified with setEncoding(), else a Buffer if no encoding is in effect.
 
 ### buf.peekbytes( nbytes [,encoding] )
 
@@ -76,15 +76,23 @@ With this call getline() can be implemented as `buf.read(buf.indexOfChar("\n") +
 
 ### buf.setEncoding( encoding )
 
-Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Specifyng an
-encoding will cause strings to be read from the QBuffer.  The default, an
-encoding value of null, returns Buffer objects instead of strings.
+Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Setting an
+encoding will cause strings to be read from the QBuffer.  To clear the encoding
+in effect setEncoding to null.  The default is null, to return Buffer objects.
 
-### buf.write( data [,encoding] [,callback] )
+The setEncoding conversion in effect is used both for reading and when
+data is written to the buffer.  The default encoding can be overridden call
+by call in read() and write().
+
+### buf.write( data [,encoding] [,callback(err, nbytes)] )
 
 Append data to the buffer.  The data may be provided either as a string or in a
-Buffer.  The callback, if specified, will be called with the count of bytes
-(not characters) appended.
+Buffer.  Strings are converted to bytes using the given encoding or that
+specified by setEncoding.
+
+Returns true if ready to buffer more data, false once highWaterMark has been
+reached to throttle the input.  The callback, if specified, will be called with
+the count of bytes (not characters) appended.
 
 
 Todo
