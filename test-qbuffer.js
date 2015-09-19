@@ -64,6 +64,30 @@ module.exports = {
             t.deepEqual(str, new Buffer("test1"))
             t.done()
         },
+
+        'should convert using specified encoding': function(t) {
+            var cut = this.cut
+            cut.write("test1test2")
+            var str = cut.read(5, 'base64')
+            t.equal(str, "dGVzdDE=")
+            t.done()
+        },
+
+/***
+TBD:
+        'should invoke callback if given': function(t) {
+            var cut = this.cut
+            t.expect(2)
+            cut.write("test1test2test3")
+            cut.read(5, function(err, ret) {
+                t.ifError(err)
+                cut.read(5, function(err, ret) {
+                    t.ifError()
+                    t.done()
+                })
+            })
+        },
+***/
     },
 
     'speed test': {
