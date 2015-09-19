@@ -1,3 +1,10 @@
+/**
+ * qbuffer -- buffered binary datastream for piping, buffering and rechunking
+ *
+ * Copyright (C) 2015 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 var QBuffer = require('./index')
 
 module.exports = {
@@ -66,10 +73,42 @@ module.exports = {
         },
 
         'should convert using specified encoding': function(t) {
-            var cut = this.cut
-            cut.write("test1test2")
-            var str = cut.read(5, 'base64')
+            this.cut.write("test1test2")
+            var str = this.cut.read(5, 'base64')
             t.equal(str, "dGVzdDE=")
+            t.done()
+        },
+
+        'should convert using set encoding': function(t) {
+            this.cut.write("test1test2")
+            this.cut.setEncoding('base64')
+            var str = this.cut.read(5)
+            t.equal(str, "dGVzdDE=")
+            t.done()
+        },
+
+        'should return null if no data available': function(t) {
+            this.cut.write("test")
+            t.equal(this.cut.read(5), null)
+            t.done()
+        },
+
+        'should concat buffers and skip already read bytes': function(t) {
+            this.cut.setEncoding('utf8')
+            this.cut.write("test1\ntest")
+            this.cut.write("2\ntest3\ntest")
+            t.equal(this.cut.read(6), "test1\n")
+            t.equal(this.cut.read(6), "test2\n")
+            t.equal(this.cut.read(6), "test3\n")
+            t.equal(this.cut.read(6), null)
+            t.done()
+        },
+
+        'should split utf8 characters on byte boundaries': function(t) {
+            this.cut.write("\x80")
+            t.equal(this.cut.length, 2)
+            t.deepEqual(this.cut.read(1), new Buffer([0xc2]))
+            t.equal(this.cut.length, 1)
             t.done()
         },
 
@@ -88,6 +127,29 @@ TBD:
             })
         },
 ***/
+    },
+
+    'getline': {
+        'should call read with line length': function(t) {
+            var readBytes = 0, cut = this.cut, oldRead = cut.read
+            cut.read = function(a, b, c) {
+                readBytes += a
+                return oldRead.call(cut, a, b, c)
+            }
+            cut.write("test1\n")
+            cut.getline()
+            cut.read = oldRead
+            t.equal(readBytes, 6)
+            t.done()
+        },
+
+        'should return data ending in newline': function(t) {
+            this.cut.write("test")
+            t.equal(this.cut.getline(), null)
+            this.cut.write("1\ntest2\n")
+            t.equal(this.cut.getline(), "test1\n")
+            t.done()
+        },
     },
 
     'speed test': {
