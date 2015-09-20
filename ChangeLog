@@ -1,3 +1,11 @@
+0.3.0
+
+- fix _concat
+- skipbytes method
+- pipeFrom method
+- remove highWaterMark and lowWaterMark pending user-specified delimiters
+- document opts.encoding constructor option
+
 0.2.0
 
 - new indexOfChar method

@@ -10,19 +10,17 @@
 
 'use strict'
 
-var util = require('util')
-var EventEmitter = require('events').EventEmitter
-
 function QBuffer( opts ) {
     if (this === global || !this) return new QBuffer(opts)
     opts = opts || {}
-    this.highWaterMark = opts.highWaterMark || 1024000
-    this.lowWaterMark = opts.lowWaterMark || 40960
+    // TODO: throttle input above highWaterMark only if setDelimiter says we have a complete record waiting
+    // TODO: otherwise might deadlock waiting for the paused data to finish arriving
+    // this.highWaterMark = opts.highWaterMark || 1024000
+    // this.lowWaterMark = opts.lowWaterMark || 40960
     this.encoding = opts.encoding || null
     this.start = 0
     this.length = 0
     this.chunks = new Array()
-    this.chunk = null
     return this
 }
 
@@ -34,7 +32,6 @@ QBuffer.prototype = {
     length: 0,
 
     chunks: null,
-    chunk: null,
 
     setEncoding:
     function setEncoding( encoding ) {
@@ -65,6 +62,11 @@ QBuffer.prototype = {
         start = start || 0
         var pos = this._indexOfCharcode(char.charCodeAt(0), start + this.start)
         return pos === -1 ? -1 : pos - this.start
+    },
+
+    skipbytes:
+    function skipbytes( nbytes ) {
+        this._skipbytes(this.start + nbytes)
     },
 
     // retrieve the next record (newline-terminated string) form the buffer
@@ -116,11 +118,6 @@ QBuffer.prototype = {
         return encoding ? chunk.toString(encoding, this.start, bound) : chunk.slice(this.start, bound)
     },
 
-    _read:
-    function _read( nbytes ) {
-        return this.read(nbytes)
-    },
-
     // append data to the buffered contents
     write:
     function write( chunk, encoding, cb ) {
@@ -137,7 +134,20 @@ QBuffer.prototype = {
         if (cb) cb(null, chunk.length)
 
         // return true if willing to buffer more, false to throttle input
-        return this.length < this.highWaterMark
+        // TODO: automatic throttling requires knowing the record boundaries! (ie setDelimiter)
+        // return this.length < this.highWaterMark
+        return true
+    },
+
+    pipeFrom:
+    function pipeFrom( stream ) {
+        var self = this
+        var onData = function onData(chunk) { self.write(chunk) }
+        stream.on('data', onData)
+        stream.once('end', function() { stream.removeListener('data', onData) })
+        stream.once('close', function() { stream.removeListener('data', onData) })
+        // TODO: throttle input above highWaterMark only if setDelimiter says we have a complete record waiting
+        // TODO: otherwise might deadlock waiting for the paused data to finish arriving
     },
 
     // find the offset of the first char in the buffered data
@@ -196,7 +206,7 @@ QBuffer.prototype = {
     // returns the first Buffer, now larger, or null if not enough data
     _concat:
     function _concat( bound ) {
-        if (this.length < bound) return null
+        if (this.start + this.length < bound) return null
         var chunks = this.chunks
 
         var len = 0, nchunks = 0

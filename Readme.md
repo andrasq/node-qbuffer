@@ -1,9 +1,9 @@
 QBuffer
 =======
 
-Fast binary stream buffer, to be able to coalesce then re-split chunked binary data.
+Very fast binary stream buffer, to be able to coalesce then re-split chunked binary data.
 Handy for concatenated byte-counted binary or mixed text/binary data like BSON entities
-or beanstalkd responses.
+or beanstalkd responses.  Reads over a million 200B lines per second from 50kB chunks.
 
 For easier throttling and event loop control, QBuffer implements pull-based flow
 control.  It buffers incoming data on write, but reading happens when
@@ -38,6 +38,7 @@ Methods
 ### new QBuffer( opts )
 
 Options:
+- `encoding` - the default encoding to use, as set with `setEncoding()`
 - `highWaterMark` - when to ask that input be throttled
 - `lowWaterMark` - TBD
 
@@ -90,16 +91,37 @@ Append data to the buffer.  The data may be provided either as a string or in a
 Buffer.  Strings are converted to bytes using the given encoding or that
 specified by setEncoding.
 
-Returns true if ready to buffer more data, false once highWaterMark has been
-reached to throttle the input.  The callback, if specified, will be called with
-the count of bytes (not characters) appended.
+Returns true if ready to buffer more data, false to throttle the input.  The
+callback, if specified, will be called with the count of bytes (not characters)
+appended.
+
+### buf.pipeFrom( stream )
+
+Write the data chunks emitted by the stream into the qbuffer with an on('data')
+event listener.  This is a minor convenience; handling stream errors is still
+up the caller.
+
+
+A Note on Piping
+----------------
+
+Consume a stream with an on('data') event listener.  `qbuffer.pipeFrom(stream)`
+does just that.  Stream errors must be handled by the caller.
+
+Streams can not pipe directly to qbuffers with eg `stream.pipe(qbuffer)`.
+One big benefit of piping is the built-in flow control and data throttling.
+However, qbuffers help separate variable length records.  With variable-length
+records, automatically pausing the input risks stopping the data flow before the
+end of the current record is received; once paused, the end never will arrive.
+This would cause deadlock.  Since only the application knows the record layout,
+the flow can only be controlled from the application, not from the data stream.
+Without flow control, a pipe is just a plain stream.
 
 
 Todo
 ----
 
-- unit tests
-- make pipable (event emitter), if no performance penalty
+- more unit tests
 - setDelimiter() method for user-specified record splitting
 - indexOf() method
 
@@ -108,3 +130,4 @@ Related Work
 ------------
 
 - [split](http://npmjs.com/package/split) - very fast regex-delimited text stream re-splitter
+- [through](http://npmjs.com/package/through) - clever shim for making a write function pipable

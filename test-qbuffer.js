@@ -6,6 +6,18 @@
  */
 
 var QBuffer = require('./index')
+var Stream = require('stream')
+
+
+// build a stream that will emit the given chunks of data
+function makeTestStream( stream, chunks ) {
+    // note: streams emit immediately, data is lost if no listener
+    for (var i=0; i<chunks.length; i++) {
+        stream.emit('data', chunks[i])
+    }
+    stream.emit('end')
+    return stream
+}
 
 module.exports = {
     setUp: function(done) {
@@ -213,7 +225,49 @@ TBD:
         }
     },
 
+    '_concat': {
+        'should use existing buffer if already big enough': function(t) {
+            this.cut.write('line1\nline2')
+            this.cut.write('\nline3\nline')
+            this.cut.write('4\n')
+            this.cut._concat(5)
+            t.equal(this.cut.chunks[0].length, 11)
+            t.done()
+        },
+
+        'should combine buffers until bound is contained': function(t) {
+            this.cut.write('line1\nline2')
+            this.cut.write('\nline3\nline')
+            this.cut.write('4\n')
+            this.cut._concat(24)
+            t.equal(this.cut.chunks[0].length, 24)
+            t.done()
+        },
+
+        'should combine buffers to contain bound with large read offset': function(t) {
+            this.cut.write('line1\nline2')
+            this.cut.write('\nline3\nline')
+            this.cut.write('4\n')
+            this.cut.read(18)
+            this.cut._concat(24)
+            t.equal(this.cut.chunks[0].length, 24)
+            t.equal(this.cut.read(6, 'utf8'), 'line4\n')
+            t.done()
+        },
+    },
+
     'operational tests': {
+        'should consume stream': function(t) {
+            dataStream = new Stream()
+            this.cut.pipeFrom(dataStream)
+            makeTestStream(dataStream, ['line1\nline2', '\nline3\nline', '4\n'])
+            var line, lines = []
+            this.cut.setEncoding('utf8')
+            while ((line = this.cut.getline())) lines.push(line)
+            t.deepEqual(lines, ['line1\n', 'line2\n', 'line3\n', 'line4\n'])
+            t.done()
+        },
+
         'quicktest': function(t) {
             var b = new QBuffer()
             var i
