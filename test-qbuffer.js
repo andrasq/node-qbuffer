@@ -270,7 +270,7 @@ TBD:
 
         'quicktest': function(t) {
             var b = new QBuffer()
-            var i
+            var i, j
 
             var encoding = 'utf8'
 
@@ -282,7 +282,9 @@ TBD:
             else { expectChar = 'x' ; expectLine = s200 }
 
             b.write("line1\nline2\nline3\nline4\n")
-            for (i=0; i<400; i++) b.write(s1k)          // 100k lines total
+            var chunkSize = 65000
+            // write 100k lines total
+            for (i=0; i<400; i++) for (j=0; j<s1k.length; j+=chunkSize) b.write(s1k.slice(j, j+chunkSize))
 
             t.deepEqual(b.getline(), new Buffer("line1\n"))
             b.setEncoding(encoding)                     // null for Buffers, 'utf8' for strings
@@ -303,8 +305,9 @@ TBD:
             t.deepEqual(b.encoding, encoding)
             t.done()
 
-            // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines)
-            // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers)
+            // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines) in 50k chunks
+            // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers) in 50k chunks
+            // 250k 200B lines per second (utf8) in 1k chunks
         }
     },
 }
