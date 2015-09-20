@@ -39,8 +39,8 @@ Methods
 
 Options:
 - `encoding` - the default encoding to use, as set with `setEncoding()`
-- `highWaterMark` - when to ask that input be throttled
-- `lowWaterMark` - TBD
+- `highWaterMark` - when to ask that input be throttled (TBD; placeholder)
+- `lowWaterMark` - when to ask that input resume (TBD; placeholder)
 
 ### buf.length
 
