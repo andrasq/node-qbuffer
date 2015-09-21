@@ -452,16 +452,20 @@ TBD:
 
         'fuzz test with lines in random size chunks': function(t) {
             var i, j, testString = "", testChunks = []
-            for (i=0; i<100000; i++) testString += "test line " + i + "\n"
+            for (i=0; i<10000; i++) testString += "test line " + i + "\n"
             var base = 0, bound
-            while (bound < testString.length) {
-                bound = base + 1 + (Math.random() * 1000 | 0)
+            while (base < testString.length) {
+                bound = base + 1 + (Math.random() * 20 | 0)
                 testChunks.push(testString.slice(base, bound))
                 base = bound
             }
-            for (i=0; i<testChunks.length; i++) this.cut.write(testChunks[i])
             var line, lines = []
-            while ((line = this.cut.getline()) !== null) lines.push(line)
+            for (i=0; i<testChunks.length; i++) {
+                this.cut.write(testChunks[i])
+            }
+            while ((line = this.cut.getline()) !== null) {
+                lines.push(line)
+            }
             for (i=0; i<lines.length; i++) {
                 t.equal(lines[i], "test line " + i + "\n")
             }
