@@ -448,6 +448,24 @@ TBD:
             // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines) in 50k chunks
             // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers) in 50k chunks
             // 250k 200B lines per second (utf8) in 1k chunks
-        }
+        },
+
+        'fuzz test with lines in random size chunks': function(t) {
+            var i, j, testString = "", testChunks = []
+            for (i=0; i<100000; i++) testString += "test line " + i + "\n"
+            var base = 0, bound
+            while (bound < testString.length) {
+                bound = base + 1 + (Math.random() * 1000 | 0)
+                testChunks.push(testString.slice(base, bound))
+                base = bound
+            }
+            for (i=0; i<testChunks.length; i++) this.cut.write(testChunks[i])
+            var line, lines = []
+            while ((line = this.cut.getline()) !== null) lines.push(line)
+            for (i=0; i<lines.length; i++) {
+                t.equal(lines[i], "test line " + i + "\n")
+            }
+            t.done()
+        },
     },
 }
