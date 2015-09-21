@@ -32,6 +32,35 @@ module.exports = {
         },
     },
 
+    'length': {
+        'should return 0 when empty': function(t) {
+            t.equal(0, this.cut.length);
+            t.done();
+        },
+
+        'should be length of single chunk': function(t) {
+            this.cut.write("test string");
+            t.equal(11, this.cut.length);
+            t.done();
+        },
+
+        'should be total length of multiple chunks': function(t) {
+            this.cut.write("test string");
+            this.cut.write("test2");
+            t.equal(16, this.cut.length);
+            t.done();
+        },
+
+        'should not include the consumed start and be empty once all read': function(t) {
+            this.cut.write("test data");
+            this.cut.read(3)
+            t.equal(this.cut.length, 6);
+            this.cut.read(6)
+            t.equal(this.cut.length, 0);
+            t.done();
+        },
+    },
+
     'write': {
         'should append buffers to chunks': function(t) {
             this.cut.write(new Buffer("123"))
@@ -75,7 +104,44 @@ module.exports = {
         },
     },
 
+    'peekbytes': {
+        'should return next unread bytes without consuming the data': function(t) {
+            this.cut.write('test1 test2 test3')
+            this.cut.read(4)
+            t.deepEqual(this.cut.peekbytes(4), new Buffer('1 te'))
+            t.deepEqual(this.cut.peekbytes(4), new Buffer('1 te'))
+            t.done()
+        },
+    },
+
     'read': {
+        'should return Buffer by default': function(t) {
+            this.cut.write('test')
+            t.deepEqual(this.cut.read(4), new Buffer('test'))
+            t.done()
+        },
+
+        'should return string if encoding is specified': function(t) {
+            this.cut.write('test')
+            t.deepEqual(this.cut.read(4, 'utf8'), 'test')
+            t.done()
+        },
+
+        'should return the next unread portion of the data': function(t) {
+            this.cut.write(new Buffer("test data"));
+            t.deepEqual(this.cut.read(3), new Buffer("tes"));
+            t.equal(this.cut.start, 3);
+            t.deepEqual(this.cut.read(4), new Buffer("t da"));
+            t.equal(this.cut.start, 7);
+            t.done();
+        },
+
+        'should return Buffer by default': function(t) {
+            this.cut.write('test')
+            t.deepEqual(this.cut.read(4), new Buffer('test'))
+            t.done()
+        },
+
         'should retrieve content from separate Buffers': function(t) {
             this.cut.write(new Buffer("test"))
             this.cut.write(new Buffer("1"))
@@ -141,6 +207,35 @@ TBD:
 ***/
     },
 
+    'skipbytes': {
+        'should advance read point': function(t) {
+            this.cut.write('test1')
+            this.cut.skipbytes(3)
+            t.equal(this.cut.length, 2)
+            t.equal(this.cut.read(2, 'utf8'), 't1')
+            t.done()
+        },
+
+        'should start at read offset': function(t) {
+            this.cut.write('test1 test2')
+            this.cut.read(3)
+            this.cut.skipbytes(3)
+            t.equal(this.cut.length, 5)
+            t.equal(this.cut.read(5, 'utf8'), 'test2')
+            t.done()
+        },
+
+        'should skip entire chunks': function(t) {
+            this.cut.write('test1\n')
+            this.cut.write('test2\n')
+            this.cut.write('test3\n')
+            this.cut.skipbytes(15)
+            t.equal(this.cut.length, 3)
+            t.equal(this.cut.read(2, 'utf8'), 't3')
+            t.done()
+        },
+    },
+
     'getline': {
         'should call read with line length': function(t) {
             var readBytes = 0, cut = this.cut, oldRead = cut.read
@@ -165,6 +260,51 @@ TBD:
     },
 
     'indexOfChar': {
+        'should return -1 if not found': function(t) {
+            this.cut.write(new Buffer("test"));
+            t.equal(this.cut.indexOfChar("\n"), -1);
+            t.done();
+        },
+
+        'should find newline at start': function(t) {
+            this.cut.write(new Buffer("\ntest"));
+            t.equal(this.cut.indexOfChar("\n"), 0);
+            t.done();
+        },
+
+        'should find newline at end': function(t) {
+            this.cut.write(new Buffer("test\n"));
+            t.equal(this.cut.indexOfChar("\n"), 4);
+            t.done();
+        },
+
+        'should find newline in middle': function(t) {
+            this.cut.write(new Buffer("test1\r\ntest2"));
+            t.equal(this.cut.indexOfChar("\n"), 6);
+            t.done();
+        },
+
+        'should not return an offset before start': function(t) {
+            this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
+            this.cut.read(4)
+            t.equal(this.cut.indexOfChar("\n"), 4);
+            t.done();
+        },
+
+        'should return offset in combined chunks': function(t) {
+            this.cut.write("part1");
+            this.cut.write("part2");
+            this.cut.write("\nmore data");
+            t.equal(this.cut.indexOfChar("\n"), 10);
+            t.done();
+        },
+
+        'should start searching at offset': function(t) {
+            this.cut.write("test1\r\ntest2\r\ntest3");
+            t.equal(this.cut.indexOfChar("\n", 8), 13);
+            t.done();
+        },
+
         'should offset for start and call _indexOfCharcode': function(t) {
             var called = false, oldIndexOf = this.cut._indexOfCharcode
             var cut = this.cut

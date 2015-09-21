@@ -44,7 +44,7 @@ Options:
 
 ### buf.length
 
-The number of unrad bytes currently in the buffer.
+The number of unread bytes currently in the buffer.
 
 ### buf.getline( )
 
