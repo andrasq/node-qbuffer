@@ -68,12 +68,22 @@ or specified with setEncoding(), else a Buffer if no encoding is in effect.
 
 Just like read, but do not advance the read point.
 
-### buf.indexOfChar( char, start )
+### buf.indexOfChar( char [,start] )
 
 Return the offset in the unread data of the first occurrence of char at
 or after offset `start` in the data stream.
 
 With this call getline() can be implemented as `buf.read(buf.indexOfChar("\n") + 1)`
+
+### buf.indexOfChar2( char1, char2 [,start] )
+
+Return the offset of the first occurrence of char1 that is followed immediately
+by char2.  This is a work-around while there is no indexOf() call.
+
+### buf.skipbytes( nbytes )
+
+Advance the read position by nbytes and discard the bytes skipped over.  If
+there are not that many unread bytes it empties the buffer.
 
 ### buf.setEncoding( encoding )
 

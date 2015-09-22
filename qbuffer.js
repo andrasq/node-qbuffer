@@ -59,8 +59,13 @@ QBuffer.prototype = {
 
     indexOfChar:
     function indexOfChar( char, start ) {
-        start = start || 0
-        var pos = this._indexOfCharcode(char.charCodeAt(0), start + this.start)
+        var pos = this._indexOfCharcode(char.charCodeAt(0), (start || 0) + this.start)
+        return pos === -1 ? -1 : pos - this.start
+    },
+
+    indexOfChar2:
+    function indexOfChar2( char, char2, start ) {
+        var pos = this._indexOfCharcode(char.charCodeAt(0), char2.charCodeAt(0), (start || 0) + this.start)
         return pos === -1 ? -1 : pos - this.start
     },
 
@@ -151,9 +156,11 @@ QBuffer.prototype = {
     },
 
     // find the offset of the first char in the buffered data
+    // usage: ioc(code), ioc(code, start), ioc(code, code2, start)
     _indexOfCharcode:
-    function _indexOfCharcode( code, start ) {
+    function _indexOfCharcode( code, code2, start ) {
         // must be called with start >= this.start
+        if (start === undefined) { start = code2; code2 = undefined }
         start = start || this.start
         var i, j, offset = 0, chunk
         for (i=0; i<this.chunks.length; i++) {
@@ -164,9 +171,20 @@ QBuffer.prototype = {
                 offset += chunk.length
             }
             else {
-                for (j=start; j<chunk.length; j++) {
-                    // then scan that chunk for the first instance of code
-                    if (chunk[j] === code) return offset + j
+                if (code2 === undefined) {
+                    for (j=start; j<chunk.length; j++) {
+                        // then scan that chunk for the first instance of code
+                        if (chunk[j] === code) return offset + j
+                    }
+                }
+                else {
+                    for (j=start; j<chunk.length; j++) {
+                        // NOTE: testing for a second charcode slows getline() 40%, use separate loop
+                        if (chunk[j] === code) {
+                            if (chunk.length > j + 1 && chunk[j+1] === code2) return offset + j
+                            if (chunk.length === j + 1 && this.chunks.length > i + 1 && this.chunks[i+1][0] === code2) return offset + j
+                        }
+                    }
                 }
                 // if scanned a chunk, scan the next from its very beginning
                 offset += chunk.length

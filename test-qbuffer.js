@@ -260,48 +260,10 @@ TBD:
     },
 
     'indexOfChar': {
-        'should return -1 if not found': function(t) {
-            this.cut.write(new Buffer("test"));
-            t.equal(this.cut.indexOfChar("\n"), -1);
-            t.done();
-        },
-
-        'should find newline at start': function(t) {
-            this.cut.write(new Buffer("\ntest"));
-            t.equal(this.cut.indexOfChar("\n"), 0);
-            t.done();
-        },
-
-        'should find newline at end': function(t) {
-            this.cut.write(new Buffer("test\n"));
-            t.equal(this.cut.indexOfChar("\n"), 4);
-            t.done();
-        },
-
-        'should find newline in middle': function(t) {
-            this.cut.write(new Buffer("test1\r\ntest2"));
-            t.equal(this.cut.indexOfChar("\n"), 6);
-            t.done();
-        },
-
         'should not return an offset before start': function(t) {
             this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
             this.cut.read(4)
             t.equal(this.cut.indexOfChar("\n"), 4);
-            t.done();
-        },
-
-        'should return offset in combined chunks': function(t) {
-            this.cut.write("part1");
-            this.cut.write("part2");
-            this.cut.write("\nmore data");
-            t.equal(this.cut.indexOfChar("\n"), 10);
-            t.done();
-        },
-
-        'should start searching at offset': function(t) {
-            this.cut.write("test1\r\ntest2\r\ntest3");
-            t.equal(this.cut.indexOfChar("\n", 8), 13);
             t.done();
         },
 
@@ -332,19 +294,82 @@ TBD:
         },
     },
 
+    'indexOfChar2': {
+        'should not return an offset before start': function(t) {
+            this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
+            this.cut.read(4)
+            t.equal(this.cut.indexOfChar2("\r", "\n"), 3);
+            t.done();
+        },
+
+        'should call _indexOfCharcode': function(t) {
+            var params = []
+            oldCall = this.cut._indexOfCharcode
+            var cut = this.cut
+            cut._indexOfCharcode = function(a, b, c, d) { params.push([a, b, c, d]); return oldCall.call(cut, a, b, c, d) }
+            cut.write("test1\r\n")
+            t.equal(cut.indexOfChar2("\r", "\n", 1), 5)
+            t.equal(params.length, true)
+            t.deepEqual(params[0], ["\r".charCodeAt(0), "\n".charCodeAt(0), 1, undefined])
+            t.done()
+        },
+    },
+
     '_indexOfCharcode': {
+        setUp: function(done) {
+            this.CR = "\r".charCodeAt(0)
+            this.NL = "\n".charCodeAt(0)
+            done()
+        },
+
+        'should return -1 if not found': function(t) {
+            this.cut.write(new Buffer("test"));
+            t.equal(this.cut._indexOfCharcode(this.NL), -1);
+            t.done();
+        },
+
+        'should find newline at start': function(t) {
+            this.cut.write(new Buffer("\ntest"));
+            t.equal(this.cut._indexOfCharcode(this.NL), 0);
+            t.done();
+        },
+
+        'should find newline at end': function(t) {
+            this.cut.write(new Buffer("test\n"));
+            t.equal(this.cut._indexOfCharcode(this.NL), 4);
+            t.done();
+        },
+
+        'should find newline in middle': function(t) {
+            this.cut.write(new Buffer("test1\r\ntest2"));
+            t.equal(this.cut._indexOfCharcode(this.NL), 6);
+            t.done();
+        },
+
+        'should return offset in combined chunks': function(t) {
+            this.cut.write("part1");
+            this.cut.write("part2");
+            this.cut.write("\nmore data");
+            t.equal(this.cut._indexOfCharcode(this.NL), 10);
+            t.done();
+        },
+
+        'should start searching at offset': function(t) {
+            this.cut.write("test1\r\ntest2\r\ntest3");
+            t.equal(this.cut._indexOfCharcode(this.NL, 8), 13);
+            t.done();
+        },
+
         'locates char': function(t) {
-            var nl = "\n".charCodeAt(0)
             this.cut.write("test1\ntest2\n")
-            t.equal(this.cut._indexOfCharcode(nl), 5)
+            t.equal(this.cut._indexOfCharcode(this.NL), 5)
             t.done()
         },
 
         'locates char at offset': function(t) {
-            var nl = "\n".charCodeAt(0)
             this.cut.write("test1\n")
             this.cut.write("test2\n")
-            t.equal(this.cut._indexOfCharcode(nl, 7), 11)
+            t.equal(this.cut._indexOfCharcode(this.NL, 7), 11)
             t.done()
         },
 
@@ -352,17 +377,52 @@ TBD:
             this.cut.write("test1\ntest")
             this.cut.write("2\ntest3\ntest4")
             this.cut.write("\n")
-            t.equal(this.cut._indexOfCharcode(10), 5)
-            t.equal(this.cut._indexOfCharcode(10, 6), 11)
-            t.equal(this.cut._indexOfCharcode(10, 12), 17)
-            t.equal(this.cut._indexOfCharcode(10, 18), 23)
+            t.equal(this.cut._indexOfCharcode(this.NL), 5)
+            t.equal(this.cut._indexOfCharcode(this.NL, 6), 11)
+            t.equal(this.cut._indexOfCharcode(this.NL, 12), 17)
+            t.equal(this.cut._indexOfCharcode(this.NL, 18), 23)
             t.done()
         },
 
         'returns -1 if char not found': function(t) {
             t.equal(this.cut._indexOfCharcode(1), -1)
             t.done()
-        }
+        },
+
+        'two-charcode patterns': {
+            'should find in first buffer': function(t) {
+                this.cut.write("test1\r\ntest2\r\n")
+                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.done()
+            },
+
+            'should find in second buffer': function(t) {
+                this.cut.write("test1")
+                this.cut.write("\r\ntest2\r\n")
+                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.done()
+            },
+
+            'should find split across buffers': function(t) {
+                this.cut.write("tes")
+                this.cut.write("t1\r")
+                this.cut.write("\ntest2\r\n")
+                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.done()
+            },
+
+            'should not find if pattern incomplete': function(t) {
+                this.cut.write("test1\rtest2\ntest3")
+                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), -1)
+                t.done()
+            },
+
+            'should not find if no next buffer': function(t) {
+                this.cut.write("test1\r")
+                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), -1)
+                t.done()
+            },
+        },
     },
 
     '_concat': {
