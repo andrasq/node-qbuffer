@@ -34,6 +34,9 @@ QBuffer.prototype = {
     length: 0,
 
     chunks: null,
+    _outpipe: null,
+    _pipeFragments: false,
+    outputPaused: false,
 
     setEncoding:
     function setEncoding( encoding ) {
@@ -201,6 +204,8 @@ QBuffer.prototype = {
 
         if (cb) cb(null, chunk.length)
 
+        if (this._outpipe) this._drain()
+
         // return true if willing to buffer more, false to throttle input
         // TODO: automatic throttling requires knowing the record boundaries! (ie setDelimiter)
         // return this.length < this.highWaterMark
@@ -216,6 +221,46 @@ QBuffer.prototype = {
         stream.once('close', function() { stream.removeListener('data', onData) })
         // TODO: throttle input above highWaterMark only if setDelimiter says we have a complete record waiting
         // TODO: otherwise might deadlock waiting for the paused data to finish arriving
+    },
+
+    pipeTo:
+    function pipeTo( stream, options ) {
+        options = options || {}
+        if (this._outpipe) this._outpipe.emit('unpipeTo')
+        var self = this, onDrain
+        stream.on('drain', onDrain = function() {
+            self.outputPaused = false
+            self._drain()
+        })
+        stream.once('unpipeTo', function() {
+            stream.removeListener('drain', onDrain)
+            self._outpipe = null
+            self._pipeFragments = false
+            self.outputPaused = false
+        })
+        stream.once('close', function() { stream.emit('unpipeTo') })
+        this._outpipe = stream
+        this._pipeFragments = options.allowFragments || false
+        this._drain()
+        return stream
+    },
+
+    // flush the queued records to the receiving pipe
+    // _drain() writes data, and thus can re-pause the pipe
+    _drain: function _drain( ) {
+        if (!this._outpipe || this.outputPaused) return
+        var chunk
+        while ((chunk = this.getline() || this._pipeFragments && this.read(this.length))) {
+            var writeMore = this._outpipe.write(chunk)
+            if (writeMore === false) { this.outputPaused = true ; return }
+        }
+    },
+
+    unpipeTo:
+    function unpipeTo( stream ) {
+        stream = stream || this._outpipe
+        stream.emit('unpipeTo')
+        return this
     },
 
     // find the offset of the first char in the buffered data

@@ -78,11 +78,12 @@ Delimiter can be
   function is invoked as a method call with `this` set to the qbuffer instance
 - `null` to restore the built-in default of newline terminated strings
 
-### buf.read( nbytes [,encoding] )
+### buf.read( [nbytes] [,encoding] )
 
 Remove and return the next nbytes bytes from the buffer, or null if not that
 many bytes available.  Returns a string converted with the given encoding
 or specified with setEncoding(), else a Buffer if no encoding is in effect.
+If no byte count is given, will return all buffered data.
 
 ### buf.peekbytes( nbytes [,encoding] )
 
@@ -142,6 +143,29 @@ appended.
 Write the data chunks emitted by the stream into the qbuffer with an on('data')
 event listener.  This is a minor convenience; handling stream errors is still
 up the caller.
+
+### buf.pipeTo( stream [,options] )
+
+Pipe records obtained with getline to the stream.  Flow control is handled.
+The buffered data is chunked into records per the current record delimiter in
+effect, and written to the stream one record at a time.  The default records
+are "\n" newline terminated lines.  The piped records will be converted per
+the current setWriteEncoding() in effect (default `null` for Buffers).
+
+Piping continues until the stream is closed or is unpiped with `unpipeTo()`.
+
+Qbuffers always re-split the piped data, they do not support raw pass-through.
+To pipe data in bulk, eg fixed 100K chunks, specify an appropriate record
+delimiter `setDelimiter(102400)` along with the `allowFragments: true` option.
+
+Options:
+
+- `allowFragments` - also pipe any partial records at the end of the buffered data.
+  The default is to wait for a complete record before writing it to the pipe.
+
+### buf.unpipeTo( [stream] )
+
+Stop piping records to the output pipe.
 
 
 A Note on Piping

@@ -5,12 +5,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+fs = require('fs')
 var QBuffer = require('./index')
 var Stream = require('stream')
 
 
 // build a stream that will emit the given chunks of data
-function makeTestStream( stream, chunks ) {
+function streamTestData( stream, chunks ) {
     // note: streams emit immediately, data is lost if no listener
     for (var i=0; i<chunks.length; i++) {
         stream.emit('data', chunks[i])
@@ -526,12 +527,39 @@ TBD:
         'should consume stream': function(t) {
             dataStream = new Stream()
             this.cut.pipeFrom(dataStream)
-            makeTestStream(dataStream, ['line1\nline2', '\nline3\nline', '4\n'])
+            streamTestData(dataStream, ['line1\nline2', '\nline3\nline', '4\n'])
             var line, lines = []
             this.cut.setEncoding('utf8')
             while ((line = this.cut.getline())) lines.push(line)
             t.deepEqual(lines, ['line1\n', 'line2\n', 'line3\n', 'line4\n'])
             t.done()
+        },
+
+        'should pipe to stream': function(t) {
+            var tempname = "/tmp/qbuffer-test-" + process.pid
+            var tempstream = fs.createWriteStream(tempname)
+            this.cut.pipeTo(tempstream)
+            this.cut.write('line1\nline2')
+            this.cut.write('\nline3\nline')
+            this.cut.write('4\n')
+            // write enough lines to cause pause/drain (2k or more)
+            var nlines = 5000
+            for (var i=5; i<nlines; i++) this.cut.write("line" + i + "\n")
+            var cut = this.cut
+            setTimeout(function waitForDrain() {
+                // TODO: need a better way to detect "all flushed" from the target
+                if (cut.length > 0) return setTimeout(waitForDrain, 5)
+                else {
+                    tempstream.on('finish', function() {
+                        var contents = fs.readFileSync(tempname).toString().split('\n')
+                        fs.unlinkSync(tempname)
+                        for (var i=1; i<nlines; i++) t.equal(contents[i-1], "line" + i)
+                        t.equal(contents[nlines-1], '')
+                        t.done()
+                    })
+                    tempstream.end()
+                }
+            }, 5)
         },
 
         'quicktest': function(t) {
