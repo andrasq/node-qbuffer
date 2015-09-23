@@ -39,16 +39,55 @@ QBuffer.prototype = {
         return this
     },
 
-/***
-    // customize the record delimiter.  The default up to and including the first newline "\n"
+    // locate the end of the next record in the data
+    // Default records are newline terminated strings
+    _lineEnd:
+    function _lineEnd( ) {
+        var eol = this._indexOfCharcode(10, this.start)
+        return eol === -1 ? -1 : eol + 1
+    },
+
+    _delimiterFunc: null,
+
     setDelimiter:
-    function setDelimiter( delimiterConfig ) {
-        // TBD:
-        // eg a min num bytes needed and a filter function on those bytes to look for the end of the record
-        // for newlines (min bytes 1), or bson object (min bytes 5)
+    function setDelimiter( delimiter ) {
+        switch (true) {
+        case delimiter === null:
+            // on unspecified or empty delimiter restore the default, newline terminated strings
+            delete this._lineEnd
+            break
+        case typeof delimiter === 'string':
+            var ch1 = delimiter.charCodeAt(0), ch2 = delimiter.charCodeAt(1)
+            if (delimiter.length === 1) this._lineEnd = function() {
+                var eol = this._indexOfCharcode(ch1, this.start)
+                return eol === -1 ? -1 : eol + 1
+            }
+            else if (delimiter.length === 2) this._lineEnd = function() {
+                var eol = this._indexOfCharcode(ch1, ch2, this.start)
+                return eol === -1 ? -1 : eol + 2
+            }
+            else throw new Error("string delimiters longer than 2 chars not supported yet")
+            break
+        case typeof delimiter === 'function':
+            var self = this
+            this._delimiterFunc = delimiter
+            this._lineEnd = function() {
+                // computed record end returns a user-visible start-relative offset
+                var eol = self._delimiterFunc()
+                return eol === -1 ? -1 : eol + this.start
+            }
+            break
+        case typeof delimiter === 'number':
+            this._lineEnd = function() { return this.start + delimiter }
+            break
+        default:
+            throw new Error("unrecognized record delimiter: " + (typeof delimiter))
+            break
+        }
         return this
     },
 
+/***
     indexOf:
     function indexOf( string, start ) {
         start = this.start + (start === undefined) ? 0 : start
@@ -77,9 +116,8 @@ QBuffer.prototype = {
     // retrieve the next record (newline-terminated string) form the buffer
     getline:
     function getline( ) {
-        var eol = this._indexOfCharcode("\n".charCodeAt(0))
-        if (eol === -1) return null
-        return this.read(eol + 1 - this.start)
+        var eol = this._lineEnd()
+        return (eol === -1) ? null : this.read(eol - this.start)
     },
 
     // copy out, but do not consume, the next record from the buffer
@@ -215,6 +253,11 @@ QBuffer.prototype = {
             else {
                 this.length -= (bound - this.start)
                 this.start = bound
+                if (this.start > 100000 && this.chunks[0].length - this.start < this.start) {
+                    // do not let the first buffer grow without bound, trim it for the next _concat
+                    this.chunks[0] = this.chunks[0].slice(this.start)
+                    this.start = 0
+                }
                 return
             }
         }

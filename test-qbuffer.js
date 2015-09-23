@@ -259,6 +259,55 @@ TBD:
         },
     },
 
+    'setDelimiter': {
+        'should split records on char': function(t) {
+            this.cut.write("test1;test2;test\n")
+            this.cut.setEncoding('utf8')
+            this.cut.setDelimiter(';')
+            t.equal(this.cut.getline(), 'test1;')
+            t.equal(this.cut.getline(), 'test2;')
+            t.equal(this.cut.getline(), null)
+            t.done()
+        },
+
+        'should split fixed-length records on count': function(t) {
+            this.cut.write("test1;test2;test3")
+            this.cut.setEncoding('utf8')
+            this.cut.setDelimiter(6)
+            t.equal(this.cut.getline(), 'test1;')
+            t.equal(this.cut.getline(), 'test2;')
+            t.equal(this.cut.getline(), null)
+            t.done()
+        },
+
+        'should split lines on computed line-end': function(t) {
+            this.cut.write("test1;test2;test3")
+            this.cut.setEncoding('utf8')
+            this.cut.setDelimiter(function() {
+                var pos = this.indexOfChar(';')
+                return (pos < 0) ? -1 : pos + 1
+            })
+            t.equal(this.cut.getline(), 'test1;')
+            t.equal(this.cut.getline(), 'test2;')
+            t.equal(this.cut.getline(), null)
+            t.done()
+        },
+
+        'should split variable-length records on computed length': function(t) {
+            this.cut.write("1.a;2.bb;3.ccc;4.dddd")
+            this.cut.setEncoding('utf8')
+            this.cut.setDelimiter(function() {
+                var nb = this.indexOfChar("."); if (nb === -1) return -1
+                return nb + 1 + parseInt(this.peekbytes(nb, 'utf8')) + 1
+            })
+            t.equal(this.cut.getline(), '1.a;')
+            t.equal(this.cut.getline(), '2.bb;')
+            t.equal(this.cut.getline(), '3.ccc;')
+            t.equal(this.cut.getline(), null)
+            t.done()
+        },
+    },
+
     'indexOfChar': {
         'should not return an offset before start': function(t) {
             this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
@@ -474,6 +523,7 @@ TBD:
 
             var encoding = 'utf8'
 
+            var nloops = 100000
             var s200 = new Array(200).join('x') + "\n"  // 200B lines
             var s1k = new Array(251).join(s200)         // in 50k chunks
 
@@ -484,7 +534,7 @@ TBD:
             b.write("line1\nline2\nline3\nline4\n")
             var chunkSize = 65000
             // write 100k lines total
-            for (i=0; i<400; i++) for (j=0; j<s1k.length; j+=chunkSize) b.write(s1k.slice(j, j+chunkSize))
+            for (i=0; i<nloops / 250; i++) for (j=0; j<s1k.length; j+=chunkSize) b.write(s1k.slice(j, j+chunkSize))
 
             t.deepEqual(b.getline(), new Buffer("line1\n"))
             b.setEncoding(encoding)                     // null for Buffers, 'utf8' for strings
@@ -493,9 +543,10 @@ TBD:
             t.deepEqual(b.getline(), encoding ? "line4\n" : new Buffer("line4\n"))
 
             var t1 = Date.now()
-            //for (var i=0; i<100000; i++) { var line = b.getline(); if (line.length !== s200.length) console.log("FAIL") }
+            //for (var i=0; i<nloops; i++) { var line = b.getline(); if (line.length !== s200.length) console.log("FAIL") }
             var line
-            for (var i=0; i<100000; i++) { line = b.read(b.indexOfChar("\n")+1); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
+            //for (var i=0; i<nloops; i++) { line = b.read(b.indexOfChar("\n")+1); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
+            for (var i=0; i<nloops; i++) { line = b.getline(); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
             var t2 = Date.now()
             t.deepEqual(line, expectLine)
             console.log("100k getline in %d", t2 - t1)

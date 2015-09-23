@@ -58,6 +58,20 @@ Just like `getline`, but do not advance the read point, do not consume the
 returned bytes.  Calling `peekline` a second time will return the same line
 again.
 
+### buf.setDelimiter( delimiter )
+
+Define the record delimiter for records returned by getline().  The default is
+`"\n"`, for newline terminated strings.
+
+Delimiter can be
+
+- `string` 1 or 2 character terminating string.  The terminator is considered
+  part of the record, and is returned in the data
+- `number` length for fixed length records.
+- `function` that returns the computed length of the record.  The delimiter
+  function is invoked as a method call with `this` set to the qbuffer instance
+- `null` to restore the built-in default of newline terminated strings
+
 ### buf.read( nbytes [,encoding] )
 
 Remove and return the next nbytes bytes from the buffer, or null if not that
@@ -132,7 +146,6 @@ Todo
 ----
 
 - more unit tests
-- setDelimiter() method for user-specified record splitting
 - indexOf() method
 
 
