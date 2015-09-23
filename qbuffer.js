@@ -120,12 +120,11 @@ QBuffer.prototype = {
         return (eol === -1) ? null : this.read(eol - this.start)
     },
 
-    // copy out, but do not consume, the next record from the buffer
+    // return, but do not consume, the next record from the buffer
     peekline:
     function peekline( ) {
-        var eol = this._indexOfCharcode("\n".charCodeAt(0))
-        if (eol === -1) return null
-        return this._peekbytes(eol + 1, this.encoding)
+        var eol = this._lineEnd()
+        return (eol === -1) ? null : this._peekbytes(eol, this.encoding)
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
