@@ -1,3 +1,12 @@
+0.5.1
+
+- setDelimiter() method for getline/peekline
+
+0.4.0
+
+- indexOfChar2 method
+- unit test with random block sizes
+
 0.3.0
 
 - fix _concat
