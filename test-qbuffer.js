@@ -61,6 +61,23 @@ module.exports = {
         },
     },
 
+    'unget': {
+        'should prepend data': function(t) {
+            this.cut.write("st1\n")
+            this.cut.unget("te")
+            t.deepEqual(this.cut.getline(), new Buffer("test1\n"))
+            t.done()
+        },
+
+        'should splice out already read data': function(t) {
+            this.cut.write("test1\ntest2\n")
+            this.cut.read(8)
+            this.cut.unget("te")
+            t.deepEqual(this.cut.getline(), new Buffer("test2\n"))
+            t.done()
+        },
+    },
+
     'write': {
         'should append buffers to chunks': function(t) {
             this.cut.write(new Buffer("123"))
@@ -553,7 +570,7 @@ TBD:
             // also spot-check check internal qbuffer state, should be completely empty
             t.equal(b.length, 0)
             t.deepEqual(b.chunks, [])
-            t.deepEqual(b.encoding, encoding)
+            t.deepEqual(b.readEncoding, encoding)
             t.done()
 
             // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines) in 50k chunks

@@ -58,6 +58,12 @@ Just like `getline`, but do not advance the read point, do not consume the
 returned bytes.  Calling `peekline` a second time will return the same line
 again.
 
+### buf.unget( data [,encoding] )
+
+Prepend the data to the start of the buffered data.  The data may be a string
+or a Buffer.  The next call to read() or getline() etc will return the newly
+prepended bytes.
+
 ### buf.setDelimiter( delimiter )
 
 Define the record delimiter for records returned by getline().  The default is
@@ -101,13 +107,25 @@ there are not that many unread bytes it empties the buffer.
 
 ### buf.setEncoding( encoding )
 
-Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Setting an
-encoding will cause strings to be read from the QBuffer.  To clear the encoding
-in effect setEncoding to null.  The default is null, to return Buffer objects.
+Set both setReadEncoding() and setWriteEncoding() to the same encoding.
 
-The setEncoding conversion in effect is used both for reading and when
-data is written to the buffer.  The default encoding can be overridden call
-by call in read() and write().
+The default encoding can be overridden call by call in read() and write().
+The read end write encodings can also be set separately, see below.
+
+### buf.setReadEncoding( encoding )
+
+Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Used in
+the read calls read(), peekbytes(), getline(), peekline().  Analogous to
+Stream.setEncoding().
+
+Setting an encoding will cause strings to be read from the QBuffer.  To clear
+the encoding in effect setReadEncoding to null.  The default is null, to return
+Buffer objects.
+
+### buf.setWriteEncoding( encoding )
+
+Specify how to decode to binary the written strings.  Used in write() and
+unget().  Analogous to Stream.setDefaultEncoding().
 
 ### buf.write( data [,encoding] [,callback(err, nbytes)] )
 

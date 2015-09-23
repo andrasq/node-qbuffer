@@ -28,6 +28,8 @@ QBuffer.prototype = {
     highWaterMark: null,
     lowWaterMark: null,
     encoding: undefined,
+    readEncoding: undefined,
+    writeEncoding: undefined,
     start: 0,
     length: 0,
 
@@ -35,7 +37,22 @@ QBuffer.prototype = {
 
     setEncoding:
     function setEncoding( encoding ) {
-        this.encoding = encoding
+        this.setReadEncoding(encoding)
+        this.setWriteEncoding(encoding)
+        return this
+    },
+
+    // like Stream.setEncoding
+    setReadEncoding:
+    function setReadEncoding( encoding ) {
+        this.readEncoding = encoding
+        return this
+    },
+
+    // like Stream.setDefaultEncoding
+    setWriteEncoding:
+    function setWriteEncoding( encoding ) {
+        this.writeEncoding = encoding
         return this
     },
 
@@ -108,6 +125,16 @@ QBuffer.prototype = {
         return pos === -1 ? -1 : pos - this.start
     },
 
+    // push data back onto the head of the queue
+    unget:
+    function unget( chunk, encoding ) {
+        if (this.start > 0) { this.chunks[0] = this.chunks[0].slice(this.start) ; this.start = 0 }
+        if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.writeEncoding)
+        this.chunks.unshift(chunk)
+        this.length += chunk.length
+        // TODO: what to return?
+    },
+
     skipbytes:
     function skipbytes( nbytes ) {
         this._skipbytes(this.start + nbytes)
@@ -124,7 +151,7 @@ QBuffer.prototype = {
     peekline:
     function peekline( ) {
         var eol = this._lineEnd()
-        return (eol === -1) ? null : this._peekbytes(eol, this.encoding)
+        return (eol === -1) ? null : this._peekbytes(eol, this.readEncoding)
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
@@ -136,20 +163,19 @@ QBuffer.prototype = {
         }
         // TODO: if callback provided and no data yet, queue reader and complete read later
         // TODO: actually invoke callback TBD
-        encoding = encoding || this.encoding
+        encoding = encoding || this.readEncoding
         if (nbytes > this.length) return null
         if (!nbytes) nbytes = this.length
 
         var bound = this.start + nbytes
         var ret = this._peekbytes(bound, encoding)
-        if (ret === null) return null
-        this._skipbytes(bound)
+        if (ret !== null) this._skipbytes(bound)
         return ret
     },
 
     peekbytes:
     function peekbytes( nbytes, encoding ) {
-        return this._peekbytes(this.start + nbytes, encoding || this.encoding)
+        return this._peekbytes(this.start + nbytes, encoding || this.readEncoding)
     },
 
     _peekbytes:
@@ -167,7 +193,7 @@ QBuffer.prototype = {
             cb = encoding
             encoding = undefined
         }
-        if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.encoding)
+        if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.writeEncoding)
         this.chunks.push(chunk)
         this.length += chunk.length
         // TODO: timeit: copy into preallocated buffer, to pre-merge bufs and
