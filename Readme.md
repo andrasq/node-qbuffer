@@ -13,6 +13,8 @@ the code is ready for the data, not when the data happens to arrive.
 Summary
 -------
 
+To extract json lines from an http response body:
+
         var assert = require('assert')
         var http = require('http')
         var QBuffer = require('qbuffer')
@@ -31,6 +33,26 @@ Summary
             })
         })
 
+To extract bson buffers from a stream:
+
+        var qbuf = new QBuffer()
+        qbuf.setReadEncoding('utf8')
+        qbuf.setDelimiter(function() {
+            if (this.length <= 4) return -1
+            var len = this.peekbytes(4)
+            return len[0] + len[1] * 256 + len[2] * 65536 + len[3] * 16777216
+        })
+
+        var line, bsonArray = []
+        stream.on('data', function(chunk) {
+            qbuf.write(chunk)
+            while ((line = qbuf.getline()) !== null) bsonArray.push(line)
+        })
+        stream.on('end', function() {
+            while ((line = qbuf.getline()) !== null) bsonArray.push(line)
+            if (qbuf.length > 0) throw new Error("incomplete last entity")
+        })
+
 
 Methods
 -------
@@ -45,6 +67,14 @@ Options:
 ### buf.length
 
 The number of unread bytes currently in the buffer.
+
+### buf.readEncoding
+
+The default character encoding currently in effect for reading strings from the buffer.
+
+### buf.writeEncoding
+
+The default character encoding currently in effect when writing s trings to the buffer.
 
 ### buf.getline( )
 
@@ -189,6 +219,7 @@ Todo
 
 - more unit tests
 - indexOf() method
+- writeTo(writeFunc, endFunc) method to pipe records to code
 
 
 Related Work
