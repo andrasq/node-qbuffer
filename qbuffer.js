@@ -36,7 +36,8 @@ QBuffer.prototype = {
     chunks: null,
     _outpipe: null,
     _pipeFragments: false,
-    outputPaused: false,
+    throttled: false,                   // paused implicitly by throttling
+    paused: false,                      // paused explicitly by user
 
     setEncoding:
     function setEncoding( encoding ) {
@@ -229,14 +230,14 @@ QBuffer.prototype = {
         if (this._outpipe) this._outpipe.emit('unpipeTo')
         var self = this, onDrain
         stream.on('drain', onDrain = function() {
-            self.outputPaused = false
+            self.throttled = false
             self._drain()
         })
         stream.once('unpipeTo', function() {
             stream.removeListener('drain', onDrain)
             self._outpipe = null
             self._pipeFragments = false
-            self.outputPaused = false
+            self.throttled = false
         })
         stream.once('close', function() { stream.emit('unpipeTo') })
         this._outpipe = stream
@@ -248,12 +249,25 @@ QBuffer.prototype = {
     // flush the queued records to the receiving pipe
     // _drain() writes data, and thus can re-pause the pipe
     _drain: function _drain( ) {
-        if (!this._outpipe || this.outputPaused) return
+        if (!this._outpipe || this.throttled || this.paused) return
         var chunk
         while ((chunk = this.getline() || this._pipeFragments && this.read(this.length))) {
             var writeMore = this._outpipe.write(chunk)
-            if (writeMore === false) { this.outputPaused = true ; return }
+            if (writeMore === false) { this.throttled = true ; return }
         }
+    },
+
+    pause:
+    function pause( ) {
+        this.paused = true
+        return this
+    },
+
+    resume:
+    function resume( ) {
+        this.paused = false
+        this._drain()
+        return this
     },
 
     unpipeTo:

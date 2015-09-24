@@ -197,6 +197,16 @@ Options:
 
 Stop piping records to the output pipe.
 
+### buf.pause( )
+
+Suspend output streaming.  Data will be buffered until output is resumed.
+Explicit calls to read() will still return data.
+
+### buf.resume( )
+
+Resume output streaming, and immediately drain as much data as the target will
+accept.
+
 
 A Note on Piping
 ----------------
