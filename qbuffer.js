@@ -266,8 +266,9 @@ var QBuffer_prototype = {
 
     end:
     function end( chunk, encoding, cb ) {
-        this.ended = true
         if (chunk !== null && chunk !== undefined && chunk !== '') this.write(chunk, encoding)
+        this.ended = true
+        // drain again to end() the output stream (even though the write() just did)
         this._drain()
         // FIXME: wait for output to be fully drained, then emit 'finish' and invoke callback
         // this.emitter.once('finish', cb)

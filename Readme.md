@@ -63,7 +63,7 @@ Options:
 - `highWaterMark` - when to ask that input be throttled (default 1024000)
 - `lowWaterMark` - when to ask that input resume (default 40960)
 - `encoding` - the default encoding to use, as set with `setEncoding()`
-- `readEncoding` - as set `setReadEncoding`
+- `readEncoding` - as set with `setReadEncoding`
 - `writeEncoding` - as set with `setWriteEncoding`
 
 ### buf.length
@@ -226,9 +226,9 @@ Consume a stream with an on('data') event listener.  `qbuffer.pipeFrom(stream)`
 does just that.  Stream errors must be handled by the caller.
 
 The simple use case of piping streams into a qbuf is supported;
-`stream.pipe(qbuf)` arranges for on 'data' chunks to be written to qbuf.
-The input streams are not throttled yet.  Throttling will be record-based
-not bytecount-based.
+`stream.pipe(qbuf)` arranges for on 'data' chunks to be written to qbuf.  The
+input is throttled following the highWaterMark option, and is record-based not
+bytecount-based.
 
 One big benefit of piping is the built-in flow control and data throttling.
 However, qbuffers help separate variable length records.  With variable-length
