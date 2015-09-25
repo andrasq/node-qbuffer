@@ -1,3 +1,14 @@
+0.9.0
+
+- end() method
+- cache _nextLine offset and throttle writers on write()
+- can be piped into with stream.pipe(qbuff) with flow control
+- enable highWaterMark and lowWaterMark
+
+0.8.0
+
+- pause() and resume() methods to explicitly stop pipeTo streaming
+
 0.7.0
 
 - pipeTo() stream with flow control

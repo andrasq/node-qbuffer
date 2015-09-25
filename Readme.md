@@ -60,9 +60,11 @@ Methods
 ### new QBuffer( opts )
 
 Options:
+- `highWaterMark` - when to ask that input be throttled (default 1024000)
+- `lowWaterMark` - when to ask that input resume (default 40960)
 - `encoding` - the default encoding to use, as set with `setEncoding()`
-- `highWaterMark` - when to ask that input be throttled (TBD; placeholder)
-- `lowWaterMark` - when to ask that input resume (TBD; placeholder)
+- `readEncoding` - as set `setReadEncoding`
+- `writeEncoding` - as set with `setWriteEncoding`
 
 ### buf.length
 
@@ -168,11 +170,16 @@ Returns true if ready to buffer more data, false to throttle the input.  The
 callback, if specified, will be called with the count of bytes (not characters)
 appended.
 
+### buf.end( [data] [,encoding] [,callback] )
+
+Append an optional last chunk to the buffered data, and close the buffer.  Any
+subsequent attempt to write will throw an error or call back with error.
+
 ### buf.pipeFrom( stream )
 
 Write the data chunks emitted by the stream into the qbuffer with an on('data')
-event listener.  This is a minor convenience; handling stream errors is still
-up the caller.
+event listener.  This is a convenience method; handling stream errors is still
+up the caller.  The qbuf stream is not ended on an 'end' event.
 
 ### buf.pipeTo( stream [,options] )
 
@@ -183,13 +190,17 @@ are "\n" newline terminated lines.  The piped records will be converted per
 the current setWriteEncoding() in effect (default `null` for Buffers).
 
 Piping continues until the stream is closed or is unpiped with `unpipeTo()`.
+Unlike streams, Qbuffer can pipeTo to only one destination at a time.  As a
+work-around, pipeTo a fanout stream that pipes to the final destinations.
 
 Qbuffers always re-split the piped data, they do not support raw pass-through.
-To pipe data in bulk, eg fixed 100K chunks, specify an appropriate record
-delimiter `setDelimiter(102400)` along with the `allowFragments: true` option.
+To pipe data in bulk without regard to record boundaries, eg fixed 100K chunks,
+specify an appropriate record delimiter `setDelimiter(102400)` along with the
+`allowFragments: true` option.
 
 Options:
 
+- `end` - end the output stream when input ends
 - `allowFragments` - also pipe any partial records at the end of the buffered data.
   The default is to wait for a complete record before writing it to the pipe.
 
@@ -214,14 +225,19 @@ A Note on Piping
 Consume a stream with an on('data') event listener.  `qbuffer.pipeFrom(stream)`
 does just that.  Stream errors must be handled by the caller.
 
-Streams can not pipe directly to qbuffers with eg `stream.pipe(qbuffer)`.
+The simple use case of piping streams into a qbuf is supported;
+`stream.pipe(qbuf)` arranges for on 'data' chunks to be written to qbuf.
+The input streams are not throttled yet.  Throttling will be record-based
+not bytecount-based.
+
 One big benefit of piping is the built-in flow control and data throttling.
 However, qbuffers help separate variable length records.  With variable-length
 records, automatically pausing the input risks stopping the data flow before the
 end of the current record is received; once paused, the end never will arrive.
 This would cause deadlock.  Since only the application knows the record layout,
 the flow can only be controlled from the application, not from the data stream.
-Without flow control, a pipe is just a plain stream.
+The application can define its record structure with `setDelimiter()`, or
+can set a fixed record size for raw byte-counted binary transfers.
 
 
 Todo
