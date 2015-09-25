@@ -1,6 +1,6 @@
 {
   "name": "qbuffer",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "quick buffer to combine and re-split binary streams",
   "license": "Apache-2.0",
   "repository": {
@@ -13,7 +13,7 @@
     "url": "http://github.com/andrasq"
   },
   "engines": {
-    "node": ">=0.0.0"
+    "node": ">=0.8.0"
   },
   "scripts": {
     "test": "qunit test-qbuffer.js"

@@ -5,6 +5,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+
 fs = require('fs')
 var QBuffer = require('./index')
 var Stream = require('stream')
@@ -535,6 +536,18 @@ TBD:
             t.done()
         },
 
+        'should pipe from streams': function(t) {
+            var stream = new Stream()
+            var stream2 = new Stream()
+            stream.pipe(this.cut)
+            stream2.pipe(this.cut)
+            stream.emit('data', "test1")
+            stream2.emit('data', "\ntest")
+            stream.emit('data', "2\ntest3\n")
+            t.equal(this.cut.read().toString(), "test1\ntest2\ntest3\n")
+            t.done()
+        },
+
         'should pipe to stream': function(t) {
             var tempname = "/tmp/qbuffer-test-" + process.pid
             var tempstream = fs.createWriteStream(tempname)
@@ -550,7 +563,10 @@ TBD:
                 // TODO: need a better way to detect "all flushed" from the target
                 if (cut.length > 0) return setTimeout(waitForDrain, 5)
                 else {
+                    // NOTE: 'finish' event not emitted by node v0.8, yes by v0.10
+                    var v8bypass = setTimeout(function(){ tempstream.emit('finish') }, 200)
                     tempstream.on('finish', function() {
+                        clearTimeout(v8bypass)
                         var contents = fs.readFileSync(tempname).toString().split('\n')
                         fs.unlinkSync(tempname)
                         for (var i=1; i<nlines; i++) t.equal(contents[i-1], "line" + i)

@@ -10,6 +10,9 @@
 
 'use strict'
 
+var EventEmitter = require('events').EventEmitter
+
+
 function QBuffer( opts ) {
     if (this === global || !this) return new QBuffer(opts)
     opts = opts || {}
@@ -21,10 +24,20 @@ function QBuffer( opts ) {
     this.start = 0
     this.length = 0
     this.chunks = new Array()
+    this.emitter = new EventEmitter()
+
+    var self = this
+    this.emitter.on('pipe', function(stream) {
+        self.pipeFrom(stream)
+    })
+    this.emitter.on('unpipe', function(stream) {
+        self.unpipeFrom(stream)
+    })
+
     return this
 }
 
-QBuffer.prototype = {
+var QBuffer_prototype = {
     highWaterMark: null,
     lowWaterMark: null,
     encoding: undefined,
@@ -38,6 +51,31 @@ QBuffer.prototype = {
     _pipeFragments: false,
     throttled: false,                   // paused implicitly by throttling
     paused: false,                      // paused explicitly by user
+    ended: false,                       // when end() has been called
+    emitter: null,
+
+    end:
+    function end( chunk, encoding, cb ) {
+        this.ended = true
+        this.write(chunk, encoding)
+        // FIXME: wait for output to be fully drained, then emit 'finish' and invoke callback
+        // this.emitter.once('finish', cb)
+    },
+
+    // delegated EventEmitter methods
+    addListener: function addListener( ev, func ) { return this.emitter.addListener(ev, func) },
+    on: function on( ev, func ) { return this.emitter.on(ev, func) },
+    once: function once( ev, func ) { return this.emitter.once(ev, func) },
+    removeListener: function removeListener( ev, func ) { return this.emitter.removeListener(ev, func) },
+    removeAllListeners: function removeAllListeners( ev, func ) { return this.emitter.removeAllListeners(ev, func) },
+    setMaxListeners: function setMaxListeners( n ) { this.emitter.setMaxListeners( n ) },
+    getMaxListeners: function getMaxListeners(  ) { this.emitter.getMaxListeners(  ) },
+    // FIXME: use a setter/getter to change attribute ?
+    defaultMaxListeners: null,
+    listeners: function listeners( ev ) { return this.emitter.listeners(ev) },
+    // FIXME: we restrict arguments count to max 5
+    emit: function emit( ev, a, b, c, d, e ) { return this.emitter.emit(ev, a, b, c, d, e) },
+    listenerCount: function listenerCount( type ) { this.emitter.listenerCount( type ) },
 
     setEncoding:
     function setEncoding( encoding ) {
@@ -197,6 +235,11 @@ QBuffer.prototype = {
             cb = encoding
             encoding = undefined
         }
+        if (this.ended) {
+            var err = new Error("write after end")
+            if (cb) return cb(err)
+            else throw err
+        }
         if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.writeEncoding)
         this.chunks.push(chunk)
         this.length += chunk.length
@@ -227,19 +270,20 @@ QBuffer.prototype = {
     pipeTo:
     function pipeTo( stream, options ) {
         options = options || {}
-        if (this._outpipe) this._outpipe.emit('unpipeTo')
-        var self = this, onDrain
+        if (this._outpipe) this._outpipe.emit('_unpipeTo')
+        var self = this, onDrain, onFinish
         stream.on('drain', onDrain = function() {
             self.throttled = false
             self._drain()
         })
-        stream.once('unpipeTo', function() {
+        stream.once('_unpipeTo', function() {
             stream.removeListener('drain', onDrain)
+            stream.removeListener('drain', onFinish)
             self._outpipe = null
             self._pipeFragments = false
             self.throttled = false
         })
-        stream.once('close', function() { stream.emit('unpipeTo') })
+        stream.once('close', function() { stream.emit('_unpipeTo') })
         this._outpipe = stream
         this._pipeFragments = options.allowFragments || false
         this._drain()
@@ -257,6 +301,13 @@ QBuffer.prototype = {
         }
     },
 
+    unpipeTo:
+    function unpipeTo( stream ) {
+        stream = stream || this._outpipe
+        stream.emit('_unpipeTo')
+        return this
+    },
+
     pause:
     function pause( ) {
         this.paused = true
@@ -267,13 +318,6 @@ QBuffer.prototype = {
     function resume( ) {
         this.paused = false
         this._drain()
-        return this
-    },
-
-    unpipeTo:
-    function unpipeTo( stream ) {
-        stream = stream || this._outpipe
-        stream.emit('unpipeTo')
         return this
     },
 
@@ -369,6 +413,12 @@ QBuffer.prototype = {
         return chunks[0] = chunk
     }
 }
+
+// for (var i in QBuffer_prototype) QBuffer.prototype[i] = QBuffer_prototype[i]
+// NOTE: reads lines 2.5x faster if methods not poked singly into prototype
+// so do not inherit, much faster to delegate the EventEmitter methods
+
+QBuffer.prototype = QBuffer_prototype
 
 
 module.exports = QBuffer
