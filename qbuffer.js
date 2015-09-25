@@ -18,20 +18,23 @@ function QBuffer( opts ) {
     opts = opts || {}
     // TODO: throttle input above highWaterMark only if setDelimiter says we have a complete record waiting
     // TODO: otherwise might deadlock waiting for the paused data to finish arriving
-    // this.highWaterMark = opts.highWaterMark || 1024000
-    // this.lowWaterMark = opts.lowWaterMark || 40960
-    this.encoding = opts.encoding || null
+    this.highWaterMark = opts.highWaterMark || 1024000
+    this.lowWaterMark = opts.lowWaterMark || 40960
+    if (opts.encoding) this.readEncoding = this.writeEncoding = opts.encoding
+    this.readEncoding = opts.readEncoding || null
+    this.writeEncoding = opts.writeEncoding || null
     this.start = 0
     this.length = 0
     this.chunks = new Array()
     this.emitter = new EventEmitter()
+    this._nextLine = -1
 
     var self = this
     this.emitter.on('pipe', function(stream) {
         self.pipeFrom(stream)
     })
     this.emitter.on('unpipe', function(stream) {
-        self.unpipeFrom(stream)
+        stream.emit('_unpipeFrom')
     })
 
     return this
@@ -40,27 +43,20 @@ function QBuffer( opts ) {
 var QBuffer_prototype = {
     highWaterMark: null,
     lowWaterMark: null,
-    encoding: undefined,
     readEncoding: undefined,
     writeEncoding: undefined,
     start: 0,
     length: 0,
+    emitter: null,
+    _nextLine: -1,                      // cached _lineEnd(), cleared by _skipbytes(), unget() and setDelimiter()
 
     chunks: null,
-    _outpipe: null,
+    _outpipe: null,                     // destination pipe used by pipeTo
     _pipeFragments: false,
-    throttled: false,                   // paused implicitly by throttling
-    paused: false,                      // paused explicitly by user
+    throttled: false,                   // output paused implicitly by throttling
+    paused: false,                      // output paused explicitly by the user
+    overfull: false,                    // buffer over capacity, asked writers to throttle
     ended: false,                       // when end() has been called
-    emitter: null,
-
-    end:
-    function end( chunk, encoding, cb ) {
-        this.ended = true
-        this.write(chunk, encoding)
-        // FIXME: wait for output to be fully drained, then emit 'finish' and invoke callback
-        // this.emitter.once('finish', cb)
-    },
 
     // delegated EventEmitter methods
     addListener: function addListener( ev, func ) { return this.emitter.addListener(ev, func) },
@@ -98,10 +94,18 @@ var QBuffer_prototype = {
         return this
     },
 
-    // locate the end of the next record in the data
-    // Default records are newline terminated strings
+    // return the end of the next record in the data, or -1 if not yet known
     _lineEnd:
     function _lineEnd( ) {
+        if (this._nextLine >= 0) return this._nextLine
+        return this._nextLine = this._computeLineEnd()
+    },
+
+    // locate the end of the next record in the data
+    // Default records are newline terminated strings
+    // this method is overridden at runtime by setDelimiter()
+    _computeLineEnd:
+    function _computeLineEnd( ) {
         var eol = this._indexOfCharcode(10, this.start)
         return eol === -1 ? -1 : eol + 1
     },
@@ -110,18 +114,19 @@ var QBuffer_prototype = {
 
     setDelimiter:
     function setDelimiter( delimiter ) {
+        this._nextLine = -1
         switch (true) {
         case delimiter === null:
             // on unspecified or empty delimiter restore the default, newline terminated strings
-            delete this._lineEnd
+            delete this._computeLineEnd
             break
         case typeof delimiter === 'string':
             var ch1 = delimiter.charCodeAt(0), ch2 = delimiter.charCodeAt(1)
-            if (delimiter.length === 1) this._lineEnd = function() {
+            if (delimiter.length === 1) this._computeLineEnd = function() {
                 var eol = this._indexOfCharcode(ch1, this.start)
                 return eol === -1 ? -1 : eol + 1
             }
-            else if (delimiter.length === 2) this._lineEnd = function() {
+            else if (delimiter.length === 2) this._computeLineEnd = function() {
                 var eol = this._indexOfCharcode(ch1, ch2, this.start)
                 return eol === -1 ? -1 : eol + 2
             }
@@ -130,14 +135,14 @@ var QBuffer_prototype = {
         case typeof delimiter === 'function':
             var self = this
             this._delimiterFunc = delimiter
-            this._lineEnd = function() {
+            this._computeLineEnd = function() {
                 // computed record end returns a user-visible start-relative offset
                 var eol = self._delimiterFunc()
                 return eol === -1 ? -1 : eol + this.start
             }
             break
         case typeof delimiter === 'number':
-            this._lineEnd = function() { return this.start + delimiter }
+            this._computeLineEnd = function() { return this.start + delimiter }
             break
         default:
             throw new Error("unrecognized record delimiter: " + (typeof delimiter))
@@ -170,6 +175,7 @@ var QBuffer_prototype = {
     // push data back onto the head of the queue
     unget:
     function unget( chunk, encoding ) {
+        this._nextLine = -1
         if (this.start > 0) { this.chunks[0] = this.chunks[0].slice(this.start) ; this.start = 0 }
         if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.writeEncoding)
         this.chunks.unshift(chunk)
@@ -243,34 +249,50 @@ var QBuffer_prototype = {
         if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.writeEncoding)
         this.chunks.push(chunk)
         this.length += chunk.length
-        // TODO: timeit: copy into preallocated buffer, to pre-merge bufs and
-        // not allocate many small buffers one for each input string
-
-        if (cb) cb(null, chunk.length)
 
         if (this._outpipe) this._drain()
+        if (cb) cb(null, chunk.length)
 
         // return true if willing to buffer more, false to throttle input
-        // TODO: automatic throttling requires knowing the record boundaries! (ie setDelimiter)
-        // return this.length < this.highWaterMark
+        // automatic throttling requires knowing the record boundaries! (ie setDelimiter),
+        // otherwise might deadlock waiting for the paused data to finish arriving
+        // only when we already have the next record for getline() can we throttle
+        if (this.length > this.highWaterMark && this._lineEnd() >= 0) {
+            this.overfull = true
+            return false
+        }
         return true
+    },
+
+    end:
+    function end( chunk, encoding, cb ) {
+        this.ended = true
+        if (chunk !== null && chunk !== undefined && chunk !== '') this.write(chunk, encoding)
+        this._drain()
+        // FIXME: wait for output to be fully drained, then emit 'finish' and invoke callback
+        // this.emitter.once('finish', cb)
     },
 
     pipeFrom:
     function pipeFrom( stream ) {
         var self = this
-        var onData = function onData(chunk) { self.write(chunk) }
-        stream.on('data', onData)
-        stream.once('end', function() { stream.removeListener('data', onData) })
-        stream.once('close', function() { stream.removeListener('data', onData) })
-        // TODO: throttle input above highWaterMark only if setDelimiter says we have a complete record waiting
-        // TODO: otherwise might deadlock waiting for the paused data to finish arriving
+        var onData, onEnd, onClose
+        stream.on('data', onData = function onData(chunk) { self.write(chunk) })
+        stream.once('end', onEnd = function() { stream.emit('_unpipeFrom') })
+        stream.once('close', onClose = function() { stream.emit('_unpipeFrom') })
+        stream.once('_unpipeFrom', function() {
+            stream.removeListener('data', onData)
+            stream.removeListener('end', onEnd)
+            stream.removeListener('close', onClose)
+        })
     },
 
     pipeTo:
     function pipeTo( stream, options ) {
         options = options || {}
+        // NOTE: this pipe() is limited to piping to only one destination
         if (this._outpipe) this._outpipe.emit('_unpipeTo')
+
         var self = this, onDrain, onFinish
         stream.on('drain', onDrain = function() {
             self.throttled = false
@@ -283,7 +305,12 @@ var QBuffer_prototype = {
             self._pipeFragments = false
             self.throttled = false
         })
+        if (options.end === undefined || options.end) stream.once('_pipeToEnd', function() {
+            // if pipeTo options.end only then end the output stream (default true)
+            stream.end()
+        })
         stream.once('close', function() { stream.emit('_unpipeTo') })
+
         this._outpipe = stream
         this._pipeFragments = options.allowFragments || false
         this._drain()
@@ -293,16 +320,24 @@ var QBuffer_prototype = {
     // flush the queued records to the receiving pipe
     // _drain() writes data, and thus can re-pause the pipe
     _drain: function _drain( ) {
+        // TODO: maybe drain as an event emitter, emit 'data' records
+        // TODO: not clear whether pause/resume should affect a pipe (vs just 'data' events)
         if (!this._outpipe || this.throttled || this.paused) return
         var chunk
-        while ((chunk = this.getline() || this._pipeFragments && this.read(this.length))) {
+        while ((chunk = this.getline() || this._pipeFragments && this.length && this.read(this.length))) {
             var writeMore = this._outpipe.write(chunk)
             if (writeMore === false) { this.throttled = true ; return }
+        }
+        if (this.length === 0 && this.ended && this._outpipe.emit) {
+            // unhook from and end() the destination stream
+            this._outpipe.emit('_pipeToEnd')
         }
     },
 
     unpipeTo:
     function unpipeTo( stream ) {
+        // NOTE: this is not a full pipe(), the stream can be piped to only one destination at a time
+        if (stream && stream !== this._outpipe) return
         stream = stream || this._outpipe
         stream.emit('_unpipeTo')
         return this
@@ -371,6 +406,7 @@ var QBuffer_prototype = {
     // skip past and discard all buffered bytes until bound
     _skipbytes:
     function _skipbytes( bound ) {
+        this._nextLine = -1
         while (this.length > 0) {
             if (bound >= this.chunks[0].length) {
                 var chunk = this.chunks.shift()
@@ -386,6 +422,7 @@ var QBuffer_prototype = {
                     this.chunks[0] = this.chunks[0].slice(this.start)
                     this.start = 0
                 }
+                if (this.overfull && this.length < this.lowWaterMark) this.emitter.emit('drain')
                 return
             }
         }

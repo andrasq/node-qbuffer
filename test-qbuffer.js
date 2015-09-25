@@ -536,7 +536,7 @@ TBD:
             t.done()
         },
 
-        'should pipe from streams': function(t) {
+        'should pipe from multiple streams until unpiped': function(t) {
             var stream = new Stream()
             var stream2 = new Stream()
             stream.pipe(this.cut)
@@ -544,6 +544,11 @@ TBD:
             stream.emit('data', "test1")
             stream2.emit('data', "\ntest")
             stream.emit('data', "2\ntest3\n")
+            // unpipe a stream, verify that subsequent data does not arrive
+            // node v4.1.0 documents an unpipe(), but not yet in 0.10 or 0.12
+            //stream.unpipe(this.cut)
+            this.cut.emit('unpipe', stream)
+            stream.emit('data', "test4\n")
             t.equal(this.cut.read().toString(), "test1\ntest2\ntest3\n")
             t.done()
         },
