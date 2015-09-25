@@ -452,9 +452,11 @@ var QBuffer_prototype = {
     }
 }
 
-// for (var i in QBuffer_prototype) QBuffer.prototype[i] = QBuffer_prototype[i]
+//for (var i in QBuffer_prototype) QBuffer.prototype[i] = QBuffer_prototype[i]
 // NOTE: reads lines 2.5x faster if methods not poked singly into prototype
 // so do not inherit, much faster to delegate the EventEmitter methods
+// NOTE: but assigning prototype to self speeds accesses back up!
+//QBuffer.prototype = QBuffer.prototype
 
 QBuffer.prototype = QBuffer_prototype
 
