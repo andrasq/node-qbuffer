@@ -188,7 +188,7 @@ terminated strings using a pipe:
             function end( ) {
                 var line
                 while ((line = qbuf.getline()) !== null) this.emit('data', line)
-                if (qbuf.length > 0) throw new Error("incomplete line at end of input: " + qbuf.read())
+                if (qbuf.length > 0) throw new Error("incomplete line: " + qbuf.read())
                 this.emit('end')
             }
         )
