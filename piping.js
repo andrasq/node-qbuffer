@@ -5,52 +5,36 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-/***
-        EXPERIMENTAL - UNTESTED
-***/
-
 'use strict'
 
 var util = require('util')
 var EventEmitter = require('events').EventEmitter
-
 var QBuffer = require('./qbuffer.js')
 
-// inherit methods from the parent class without losing already defined methods
-// calling the parent constructor must be done separately
-function inheritMethods( Child, Parent ) {
-    var childMethods = Child.prototpye
-    Child.prototype = {}
-
-    util.inherits(Child, Parent)
-
-    // util.inherits loses the existing methods and properties, restore them
-    for (var i in childMethods) Child.prototype[i] = childMethods[i]
-
-    // assigning to .prototype converts hash to struct for fast access
-    Child.prototype = Child.prototype
-    return Child
-}
-
 var pipingMethods
+module.exports.addPipes = function addPipes( Class ) {
+    if (!Class.prototype.pipeFrom) {
+        var i, classMethods = Class.prototype
 
-function addPipes( ) {
-    var self = this
-
-    if (!this.pipeFrom) {
-        var i, methods = QBuffer.prototype
         // inherit EventEmitter methods
-        inheritMethods(QBuffer, EventEmitter)
-        // supplement and override QBuffer class methods
-        for (var i in pipingMethods) QBuffer.prototype[i] = pipingMethods[i]
-        QBuffer.prototype._wrapClass = function() {
-            // TBD: henceforth, QBuffer objects initialize piping fields too
-        }
-        QBuffer.prototype = QBuffer.prototype
-    }
+        util.inherits(Class, EventEmitter)
 
-    this.on('pipe', function(stream) { self.pipeFrom(stream) })
-    this.on('unpipe', function(stream) { self.unpipeFrom(stream) })
+        // restore QBuffer methods that util.inherit clobbered
+        for (i in classMethods) Class.prototype[i] = classMethods[i]
+
+        // supplement and override QBuffer class methods
+        for (i in pipingMethods) Class.prototype[i] = pipingMethods[i]
+
+        // augment QBuffer object constructor to listen for piping events
+        Class.prototype._wrapClass = function() {
+            var self = this
+            this.on('pipe', function(stream) { self.pipeFrom(stream) })
+            this.on('unpipe', function(stream) { self.unpipeFrom(stream) })
+        }
+
+        // assigning prototype converts the assigned object from hash to struct, for faster access
+        Class.prototype = Class.prototype
+    }
 }
 
 pipingMethods = {
