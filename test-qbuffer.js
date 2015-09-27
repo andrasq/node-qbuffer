@@ -335,14 +335,14 @@ TBD:
             t.done();
         },
 
-        'should offset for start and call _indexOfCharcode': function(t) {
-            var called = false, oldIndexOf = this.cut._indexOfCharcode
+        'should call indexOfCharcode': function(t) {
+            var called = false, oldIndexOf = this.cut.indexOfCharcode
             var cut = this.cut
-            cut._indexOfCharcode = function(ch,start) {
+            cut.indexOfCharcode = function(ch, ch2, start) {
                 called = true
                 t.equal(ch, "\n".charCodeAt(0))
-                t.equal(start, 6)
-                return oldIndexOf.call(cut, ch, start)
+                t.equal(start, 3)
+                return oldIndexOf.call(cut, ch, ch2, start)
             }
             cut.write("test1\ntest2\n")
             cut.read(3)
@@ -351,7 +351,7 @@ TBD:
             t.done()
         },
 
-        'should work like getline': function(t) {
+        'should be usable for getline': function(t) {
             this.cut.write("test1\ntest")
             this.cut.write("2\ntest3\ntest4")
             this.cut.setEncoding('utf8')
@@ -362,55 +362,41 @@ TBD:
         },
     },
 
-    'indexOfChar2': {
-        'should not return an offset before start': function(t) {
-            this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
-            this.cut.read(4)
-            t.equal(this.cut.indexOfChar2("\r", "\n"), 3);
-            t.done();
-        },
-
-        'should call _indexOfCharcode': function(t) {
-            var params = []
-            oldCall = this.cut._indexOfCharcode
-            var cut = this.cut
-            cut._indexOfCharcode = function(a, b, c, d) { params.push([a, b, c, d]); return oldCall.call(cut, a, b, c, d) }
-            cut.write("test1\r\n")
-            t.equal(cut.indexOfChar2("\r", "\n", 1), 5)
-            t.equal(params.length, true)
-            t.deepEqual(params[0], ["\r".charCodeAt(0), "\n".charCodeAt(0), 1, undefined])
-            t.done()
-        },
-    },
-
-    '_indexOfCharcode': {
+    'indexOfCharcode': {
         setUp: function(done) {
             this.CR = "\r".charCodeAt(0)
             this.NL = "\n".charCodeAt(0)
             done()
         },
 
+        'should not return an offset before start': function(t) {
+            this.cut.write(new Buffer("\r\ntest1\r\ntest2"));
+            this.cut.read(4)
+            t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), 3);
+            t.done();
+        },
+
         'should return -1 if not found': function(t) {
             this.cut.write(new Buffer("test"));
-            t.equal(this.cut._indexOfCharcode(this.NL), -1);
+            t.equal(this.cut.indexOfCharcode(this.NL), -1);
             t.done();
         },
 
         'should find newline at start': function(t) {
             this.cut.write(new Buffer("\ntest"));
-            t.equal(this.cut._indexOfCharcode(this.NL), 0);
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 0);
             t.done();
         },
 
         'should find newline at end': function(t) {
             this.cut.write(new Buffer("test\n"));
-            t.equal(this.cut._indexOfCharcode(this.NL), 4);
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 4);
             t.done();
         },
 
         'should find newline in middle': function(t) {
             this.cut.write(new Buffer("test1\r\ntest2"));
-            t.equal(this.cut._indexOfCharcode(this.NL), 6);
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 6);
             t.done();
         },
 
@@ -418,26 +404,26 @@ TBD:
             this.cut.write("part1");
             this.cut.write("part2");
             this.cut.write("\nmore data");
-            t.equal(this.cut._indexOfCharcode(this.NL), 10);
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 10);
             t.done();
         },
 
         'should start searching at offset': function(t) {
             this.cut.write("test1\r\ntest2\r\ntest3");
-            t.equal(this.cut._indexOfCharcode(this.NL, 8), 13);
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 8), 13);
             t.done();
         },
 
         'locates char': function(t) {
             this.cut.write("test1\ntest2\n")
-            t.equal(this.cut._indexOfCharcode(this.NL), 5)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 5)
             t.done()
         },
 
         'locates char at offset': function(t) {
             this.cut.write("test1\n")
             this.cut.write("test2\n")
-            t.equal(this.cut._indexOfCharcode(this.NL, 7), 11)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 7), 11)
             t.done()
         },
 
@@ -445,29 +431,29 @@ TBD:
             this.cut.write("test1\ntest")
             this.cut.write("2\ntest3\ntest4")
             this.cut.write("\n")
-            t.equal(this.cut._indexOfCharcode(this.NL), 5)
-            t.equal(this.cut._indexOfCharcode(this.NL, 6), 11)
-            t.equal(this.cut._indexOfCharcode(this.NL, 12), 17)
-            t.equal(this.cut._indexOfCharcode(this.NL, 18), 23)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 0), 5)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 6), 11)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 12), 17)
+            t.equal(this.cut.indexOfCharcode(this.NL, undefined, 18), 23)
             t.done()
         },
 
         'returns -1 if char not found': function(t) {
-            t.equal(this.cut._indexOfCharcode(1), -1)
+            t.equal(this.cut.indexOfCharcode(1), -1)
             t.done()
         },
 
         'two-charcode patterns': {
             'should find in first buffer': function(t) {
                 this.cut.write("test1\r\ntest2\r\n")
-                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), 5)
                 t.done()
             },
 
             'should find in second buffer': function(t) {
                 this.cut.write("test1")
                 this.cut.write("\r\ntest2\r\n")
-                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), 5)
                 t.done()
             },
 
@@ -475,19 +461,19 @@ TBD:
                 this.cut.write("tes")
                 this.cut.write("t1\r")
                 this.cut.write("\ntest2\r\n")
-                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), 5)
+                t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), 5)
                 t.done()
             },
 
             'should not find if pattern incomplete': function(t) {
                 this.cut.write("test1\rtest2\ntest3")
-                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), -1)
+                t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), -1)
                 t.done()
             },
 
             'should not find if no next buffer': function(t) {
                 this.cut.write("test1\r")
-                t.equal(this.cut._indexOfCharcode(this.CR, this.NL, 0), -1)
+                t.equal(this.cut.indexOfCharcode(this.CR, this.NL, 0), -1)
                 t.done()
             },
         },
@@ -498,7 +484,7 @@ TBD:
             this.cut.write('line1\nline2')
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
-            this.cut._concat(5)
+            this.cut.peekbytes(5)
             t.equal(this.cut.chunks[0].length, 11)
             t.done()
         },
@@ -507,7 +493,7 @@ TBD:
             this.cut.write('line1\nline2')
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
-            this.cut._concat(24)
+            this.cut.peekbytes(24)
             t.equal(this.cut.chunks[0].length, 24)
             t.done()
         },
@@ -517,7 +503,7 @@ TBD:
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
             this.cut.read(18)
-            this.cut._concat(24)
+            this.cut.peekbytes(6)
             t.equal(this.cut.chunks[0].length, 24)
             t.equal(this.cut.read(6, 'utf8'), 'line4\n')
             t.done()
@@ -525,108 +511,6 @@ TBD:
     },
 
     'operational tests': {
-        'should consume stream': function(t) {
-            dataStream = new Stream()
-            this.cut.pipeFrom(dataStream)
-            streamTestData(dataStream, ['line1\nline2', '\nline3\nline', '4\n'])
-            var line, lines = []
-            this.cut.setEncoding('utf8')
-            while ((line = this.cut.getline())) lines.push(line)
-            t.deepEqual(lines, ['line1\n', 'line2\n', 'line3\n', 'line4\n'])
-            t.done()
-        },
-
-        'should pipe from multiple streams until unpiped': function(t) {
-            var stream = new Stream()
-            var stream2 = new Stream()
-            stream.pipe(this.cut)
-            stream2.pipe(this.cut)
-            stream.emit('data', "test1")
-            stream2.emit('data', "\ntest")
-            stream.emit('data', "2\ntest3\n")
-            // unpipe a stream, verify that subsequent data does not arrive
-            // node v4.1.0 documents an unpipe(), but not yet in 0.10 or 0.12
-            //stream.unpipe(this.cut)
-            this.cut.emit('unpipe', stream)
-            stream.emit('data', "test4\n")
-            t.equal(this.cut.read().toString(), "test1\ntest2\ntest3\n")
-            t.done()
-        },
-
-        'should pipe to stream': function(t) {
-            var tempname = "/tmp/qbuffer-test-" + process.pid
-            var tempstream = fs.createWriteStream(tempname)
-            this.cut.pipeTo(tempstream)
-            this.cut.write('line1\nline2')
-            this.cut.write('\nline3\nline')
-            this.cut.write('4\n')
-            // write enough lines to cause pause/drain (2k or more)
-            var nlines = 5000
-            for (var i=5; i<nlines; i++) this.cut.write("line" + i + "\n")
-            var cut = this.cut
-            setTimeout(function waitForDrain() {
-                // TODO: need a better way to detect "all flushed" from the target
-                if (cut.length > 0) return setTimeout(waitForDrain, 5)
-                else {
-                    // NOTE: 'finish' event not emitted by node v0.8, yes by v0.10
-                    var v8bypass = setTimeout(function(){ tempstream.emit('finish') }, 200)
-                    tempstream.on('finish', function() {
-                        clearTimeout(v8bypass)
-                        var contents = fs.readFileSync(tempname).toString().split('\n')
-                        fs.unlinkSync(tempname)
-                        for (var i=1; i<nlines; i++) t.equal(contents[i-1], "line" + i)
-                        t.equal(contents[nlines-1], '')
-                        t.done()
-                    })
-                    tempstream.end()
-                }
-            }, 5)
-        },
-
-        'quicktest': function(t) {
-            var b = new QBuffer()
-            var i, j
-
-            var encoding = 'utf8'
-
-            var nloops = 100000
-            var s200 = new Array(200).join('x') + "\n"  // 200B lines
-            var s1k = new Array(251).join(s200)         // in 50k chunks
-
-            var expectChar, expectLine
-            if (!encoding) { expectChar = 'x'.charCodeAt(0) ; expectLine = new Buffer(s200) }
-            else { expectChar = 'x' ; expectLine = s200 }
-
-            b.write("line1\nline2\nline3\nline4\n")
-            var chunkSize = 65000
-            // write 100k lines total
-            for (i=0; i<nloops / 250; i++) for (j=0; j<s1k.length; j+=chunkSize) b.write(s1k.slice(j, j+chunkSize))
-
-            t.deepEqual(b.getline(), new Buffer("line1\n"))
-            b.setEncoding(encoding)                     // null for Buffers, 'utf8' for strings
-            t.deepEqual(b.getline(), encoding ? "line2\n" : new Buffer("line2\n"))
-            t.deepEqual(b.getline(), encoding ? "line3\n" : new Buffer("line3\n"))
-            t.deepEqual(b.getline(), encoding ? "line4\n" : new Buffer("line4\n"))
-
-            var t1 = Date.now()
-            //for (var i=0; i<nloops; i++) { var line = b.getline(); if (line.length !== s200.length) console.log("FAIL") }
-            var line
-            //for (var i=0; i<nloops; i++) { line = b.read(b.indexOfChar("\n")+1); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
-            for (var i=0; i<nloops; i++) { line = b.getline(); if (line.length !== s200.length || line[0] !== expectChar) console.log("FAIL") }
-            var t2 = Date.now()
-            t.deepEqual(line, expectLine)
-            console.log("100k getline in %d", t2 - t1)
-            // also spot-check check internal qbuffer state, should be completely empty
-            t.equal(b.length, 0)
-            t.deepEqual(b.chunks, [])
-            t.deepEqual(b.readEncoding, encoding)
-            t.done()
-
-            // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines) in 50k chunks
-            // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers) in 50k chunks
-            // 250k 200B lines per second (utf8) in 1k chunks
-        },
-
         'fuzz test with lines in random size chunks': function(t) {
             var i, j, testString = "", testChunks = []
             for (i=0; i<10000; i++) testString += "test line " + i + "\n"

@@ -1,3 +1,8 @@
+1.0.0
+
+- removed piping and throttling to simplify the code, not really useful (see piping.js)
+- finalized api, staying with getline/read/write/peekbytes/skipbytes
+
 0.9.0
 
 - end() method
