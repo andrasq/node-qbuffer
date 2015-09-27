@@ -2,6 +2,9 @@
 
 - removed piping and throttling to simplify the code, not really useful (see piping.js)
 - renamed peekbytes/skipbytes to peek/skip
+- removed separate readEncoding/writeEncoding
+- exposed indexOfCharcode method
+- removed indexOfChar2 method in favor of indexOfCharcode
 - finalized api, staying with getline/read/write/peek/skip
 
 0.9.0
