@@ -102,10 +102,10 @@ pipingMethods = {
         stream.once('_unpipeTo', function() {
             stream.removeListener('drain', onDrain)
             stream.removeListener('close', onClose)
-            var i, j
+            var i, j, pipes = self._outpipes
             // note: O(n^2) to unpipe all streams
-            for (i=0, j=0; i<self._outpipes.length; i++) if (self._outpipes[i] !== stream) self._outpipes[j++] = self._outpipes[i]
-            while (j++ < i) self._outpipes.pop()
+            for (i=0, j=0; i<pipes.length; i++) { if (pipes[i] !== stream) pipes[j++] = pipes[i] }
+            while (j++ < i) pipes.pop()
             self._pipeFragments = false
             self.throttled = false
         })
