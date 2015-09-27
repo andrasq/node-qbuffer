@@ -32,7 +32,6 @@ var QBuffer_prototype = {
     encoding: undefined,                // node default is 'utf8'
     start: 0,
     length: 0,
-    _lineEndLength: -1,                 // cached _lineEnd(), cleared by _skipbytes(), unget() and setDelimiter()
 
     chunks: null,
     paused: true,                       // output paused explicitly by the user (to stop 'data' events)
@@ -49,14 +48,11 @@ var QBuffer_prototype = {
     setEncoding:
     function setEncoding( encoding ) {
         this.encoding = encoding
-        this.readEncoding = encoding
     },
 
     _computeLineEnd: null,              // func to find nbytes length of next record (set by setDelimiter)
-    _delimiterFunc: null,
-
-    // return the end of the next record in the data, or -1 if not yet known
-    _lineEnd:
+    _lineEndLength: -1,                 // cached _lineEnd(), cleared by skip(), unget() and setDelimiter()
+    _lineEnd:                           // return the end of the next record in the data, or -1 if not yet known
     function _lineEnd( ) {
         if (this._lineEndLength >= 0) return this._lineEndLength
         return this._lineEndLength = this._computeLineEnd()
@@ -123,7 +119,7 @@ var QBuffer_prototype = {
     peekline:
     function peekline( ) {
         var nbytes = this._lineEnd()
-        return (nbytes === -1) ? null : this.peekbytes(nbytes, this.encoding)
+        return (nbytes === -1) ? null : this.peek(nbytes, this.encoding)
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer
@@ -136,13 +132,13 @@ var QBuffer_prototype = {
         // TODO: actually invoke callback TBD
 
         if (!nbytes) nbytes = this.length
-        var ret = this.peekbytes(nbytes, encoding || this.encoding)
-        if (ret) this.skipbytes(nbytes)
+        var ret = this.peek(nbytes, encoding || this.encoding)
+        if (ret) this.skip(nbytes)
         return ret
     },
 
-    peekbytes:
-    function peekbytes( nbytes, encoding ) {
+    peek:
+    function peek( nbytes, encoding ) {
         if (nbytes < 0 || nbytes > this.length) return null
         var bound = nbytes + this.start
         if (bound > this.chunks[0].length) {
@@ -225,8 +221,8 @@ var QBuffer_prototype = {
     },
 
     // skip past and discard all buffered bytes until bound
-    skipbytes:
-    function skipbytes( nbytes ) {
+    skip:
+    function skip( nbytes ) {
         this._lineEndLength = -1
         if (nbytes > this.length) nbytes = this.length
         var bound = nbytes + this.start
@@ -251,6 +247,10 @@ var QBuffer_prototype = {
         }
     },
 }
+
+// aliases
+QBuffer_prototype.skipbytes = QBuffer_prototype.skip
+QBuffer_prototype.peekbytes = QBuffer_prototype.peek
 
 // Note: reads lines 2.5x faster if methods not poked singly into prototype
 // However, assigning prototype to self speeds accesses back up!

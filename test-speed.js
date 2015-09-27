@@ -58,6 +58,8 @@ module.exports = {
             // 1.15m 200B lines per second (utf8) (230 MB/s) (1.9m/s 20B lines, 227k/s 200B lines) in 50k chunks
             // 1.15m 200B buffers per second, faster than qfgets (binary) (230 MB/s) (1.6m/s 20B buffers) in 50k chunks
             // 250k 200B lines per second (utf8) in 1k chunks
+
+            // 600k 200B lines per second (utf8) (120 MB/s) re-chunked from stdin and saved with qfputs {writesize: 400000}
         },
 
         'fuzz test with lines in random size chunks': function(t) {

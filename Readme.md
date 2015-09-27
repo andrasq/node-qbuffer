@@ -39,7 +39,7 @@ To extract bson buffers from a stream:
         qbuf.setReadEncoding('utf8')
         qbuf.setDelimiter(function() {
             if (this.length <= 4) return -1
-            var len = this.peekbytes(4)
+            var len = this.peek(4)
             return len[0] + len[1] * 256 + len[2] * 65536 + len[3] * 16777216
         })
 
@@ -93,7 +93,7 @@ prepended bytes.
 
 Set the character encoding used by default to convert binary data to strings,
 both when reading and when writing.  The encoding can also be specified call by
-call in read(), peekbytes() and write().
+call in read(), peek() and write().
 
 ### buf.setDelimiter( delimiter )
 
@@ -116,11 +116,11 @@ many bytes available.  Returns a string converted with the given encoding
 or specified with setEncoding(), else a Buffer if no encoding is in effect.
 If no byte count is given, will return all buffered data.
 
-### buf.peekbytes( nbytes [,encoding] )
+### buf.peek( nbytes [,encoding] )
 
 Just like read, but do not advance the read point.
 
-### buf.skipbytes( nbytes )
+### buf.skip( nbytes )
 
 Advance the read position by nbytes and discard the bytes skipped over.  If
 there are not that many unread bytes it empties the buffer.
@@ -159,7 +159,7 @@ subsequent attempt to write will throw an error or call back with error.
 A Note on Piping
 ----------------
 
-QBuffers consume a stream with an on('data') event listener.  Stream errors
+QBuffers can consume a stream with an on('data') event listener.  Stream errors
 must be handled by the caller.
 
 One big benefit of piping is the built-in flow control and data throttling.
@@ -168,6 +168,7 @@ records, automatically pausing the input risks stopping the data flow before the
 end of the current record is received; once paused, the end never will arrive.
 This would cause deadlock.  Since only the application knows the record layout,
 the flow can only be controlled from the application, not from the data stream.
+
 The application can define its record structure with `setDelimiter()`, or
 can set a fixed record size for raw byte-counted binary transfers.
 
@@ -188,7 +189,7 @@ terminated strings using a pipe:
             function end( ) {
                 var line
                 while ((line = qbuf.getline()) !== null) this.emit('data', line)
-                if (qbuf.length > 0) throw new Error("incomplete line: " + qbuf.read())
+                if (qbuf.length > 0) throw new Error("incomplete last line: " + qbuf.read())
                 this.emit('end')
             }
         )
@@ -200,8 +201,8 @@ Todo
 ----
 
 - more unit tests
-- indexOf() method
-- writeTo(writeFunc, endFunc) method to pipe records to code
+- emitTo(writeFunc, endFunc) method to pipe records to code
+- expose _lineEnd()
 
 
 Related Work
