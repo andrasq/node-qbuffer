@@ -28,6 +28,7 @@ module.exports.addPipes = function addPipes( Class ) {
         // augment QBuffer object constructor to listen for piping events
         Class.prototype._wrapClass = function() {
             var self = this
+            self._outpipes = []
             this.on('pipe', function(stream) { self.pipeFrom(stream) })
             this.on('unpipe', function(stream) { self.unpipeFrom(stream) })
         }
@@ -38,6 +39,7 @@ module.exports.addPipes = function addPipes( Class ) {
 }
 
 pipingMethods = {
+    _outpipes: null,
 
     // throttling write result
     _writeThrottle:
@@ -87,18 +89,23 @@ pipingMethods = {
     pipeTo:
     function pipeTo( stream, options ) {
         options = options || {}
-        // NOTE: this pipe() is limited to piping to only one destination
-        if (this._outpipe) this._outpipe.emit('_unpipeTo')
+        var idx = this._outpipes.indexOf(stream)
+        if (idx < 0) return
+        this._outpipes[idx].emit('_unpipeTo')
 
-        var self = this, onDrain, onFinish
+        var self = this, onDrain, onClose
         stream.on('drain', onDrain = function() {
             self.throttled = false
             self._drain()
         })
+        stream.once('close', onClose = function() { stream.emit('_unpipeTo') })
         stream.once('_unpipeTo', function() {
             stream.removeListener('drain', onDrain)
-            stream.removeListener('drain', onFinish)
-            self._outpipe = null
+            stream.removeListener('close', onClose)
+            var i, j
+            // note: O(n^2) to unpipe all streams
+            for (i=0, j=0; i<self._outpipes.length; i++) if (self._outpipes[i] !== stream) self._outpipes[j++] = self._outpipes[i]
+            while (j++ < i) self._outpipes.pop()
             self._pipeFragments = false
             self.throttled = false
         })
@@ -106,9 +113,9 @@ pipingMethods = {
             // if pipeTo options.end only then end the output stream (default true)
             stream.end()
         })
-        stream.once('close', function() { stream.emit('_unpipeTo') })
 
-        this._outpipe = stream
+        this._outpipes.push(stream)
+        // FIXME: options are per stream, not global!!  but fragments (writing) is inherently global, unless multiple read points
         this._pipeFragments = options.allowFragments || false
         this._drain()
         return stream
@@ -119,24 +126,30 @@ pipingMethods = {
     _drain: function _drain( ) {
         // TODO: maybe drain as an event emitter, emit 'data' records
         // TODO: not clear whether pause/resume should affect a pipe (vs just 'data' events)
-        if (!this._outpipe || this.throttled || this.paused) return
-        var chunk
+        if (!this._outpipes.length || this.throttled || this.paused) return
+        var chunk, i, pipe, writeMore = true
         while ((chunk = (this.getline() || this._pipeFragments && this.length && this.read(this.length))) !== null) {
-            var writeMore = this._outpipe.write(chunk)
-            if (writeMore === false) { this.throttled = true ; return }
+            for (i=0; i<this._outpipes.length; i++) {
+                writeMore = writeMore && this._outpipes[i].write(chunk)
+            }
+            if (!writeMore) { this.throttled = true ; return }
         }
-        if (this.length === 0 && this.ended && this._outpipe.emit) {
+        if (this.length === 0 && this.ended) {
             // unhook from and end() the destination stream
-            this._outpipe.emit('_pipeToEnd')
+            for (i=0; i<this._outpipes.length; i++) this._outpipes[i].emit('_pipeToEnd')
         }
     },
 
     unpipeTo:
     function unpipeTo( stream ) {
-        // NOTE: this is not a full pipe(), the stream can be piped to only one destination at a time
-        if (stream && stream !== this._outpipe) return
-        stream = stream || this._outpipe
-        stream.emit('_unpipeTo')
+        if (stream) {
+            // with a stream, unpipe from that specific stream
+            stream.emit('_unpipeTo')
+        }
+        else {
+            // without a stream, unpipe from all
+            for (var i=0; i<this._outpipes.length; i++) this.unpipeTo(this._outpipes[i])
+        }
         return this
     },
 
