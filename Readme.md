@@ -60,23 +60,16 @@ Methods
 ### new QBuffer( opts )
 
 Options:
-- `highWaterMark` - when to ask that input be throttled (default 1024000)
-- `lowWaterMark` - when to ask that input resume (default 40960)
-- `encoding` - the default encoding to use, as set with `setEncoding()`
-- `readEncoding` - as set with `setReadEncoding`
-- `writeEncoding` - as set with `setWriteEncoding`
+- `encoding` - the default encoding to use when writing or reading strings, as set with `setEncoding()` (default 'utf8')
+- `delimiter` - record delimiter specifier, as set with `setDelimiter` (default '\n')
 
 ### buf.length
 
 The number of unread bytes currently in the buffer.
 
-### buf.readEncoding
+### buf.encoding
 
-The default character encoding currently in effect for reading strings from the buffer.
-
-### buf.writeEncoding
-
-The default character encoding currently in effect when writing s trings to the buffer.
+Current encoding in effect
 
 ### buf.getline( )
 
@@ -95,6 +88,12 @@ again.
 Prepend the data to the start of the buffered data.  The data may be a string
 or a Buffer.  The next call to read() or getline() etc will return the newly
 prepended bytes.
+
+### buf.setEncoding( encoding )
+
+Set the character encoding used by default to convert binary data to strings,
+both when reading and when writing.  The encoding can also be specified call by
+call in read(), peekbytes() and write().
 
 ### buf.setDelimiter( delimiter )
 
@@ -121,44 +120,25 @@ If no byte count is given, will return all buffered data.
 
 Just like read, but do not advance the read point.
 
-### buf.indexOfChar( char [,start] )
-
-Return the offset in the unread data of the first occurrence of char at
-or after offset `start` in the data stream.
-
-With this call getline() can be implemented as `buf.read(buf.indexOfChar("\n") + 1)`
-
-### buf.indexOfChar2( char1, char2 [,start] )
-
-Return the offset of the first occurrence of char1 that is followed immediately
-by char2.  This is a work-around while there is no indexOf() call.
-
 ### buf.skipbytes( nbytes )
 
 Advance the read position by nbytes and discard the bytes skipped over.  If
 there are not that many unread bytes it empties the buffer.
 
-### buf.setEncoding( encoding )
+### buf.indexOfChar( char [,start] )
 
-Set both setReadEncoding() and setWriteEncoding() to the same encoding.
+Return the offset in the unread data of the first occurrence of char at or
+after offset `start` in the data stream.  This call just invokes
+`indexOfCharcode` on the charcode of `char[0]`.
 
-The default encoding can be overridden call by call in read() and write().
-The read end write encodings can also be set separately, see below.
+### buf.indexOfCharcode( code1, code2, start )
 
-### buf.setReadEncoding( encoding )
+Return the offset in the unread data of the first occurrence of code1.  If
+code2 is not undefined, code1 must be immediately followed by code2 in the data
+for the codes to match.
 
-Specify how to encode the returned bytes, eg 'utf8' or 'base64'.  Used in
-the read calls read(), peekbytes(), getline(), peekline().  Analogous to
-Stream.setEncoding().
-
-Setting an encoding will cause strings to be read from the QBuffer.  To clear
-the encoding in effect setReadEncoding to null.  The default is null, to return
-Buffer objects.
-
-### buf.setWriteEncoding( encoding )
-
-Specify how to decode to binary the written strings.  Used in write() and
-unget().  Analogous to Stream.setDefaultEncoding().
+With this call, getline() can be implemented as eg
+`buf.read(buf.indexOfCharcode("\n".charCodeAt(0), undefined, 0) + 1)`
 
 ### buf.write( data [,encoding] [,callback(err, nbytes)] )
 
@@ -175,60 +155,12 @@ appended.
 Append an optional last chunk to the buffered data, and close the buffer.  Any
 subsequent attempt to write will throw an error or call back with error.
 
-### buf.pipeFrom( stream )
-
-Write the data chunks emitted by the stream into the qbuffer with an on('data')
-event listener.  This is a convenience method; handling stream errors is still
-up the caller.  The qbuf stream is not ended on an 'end' event.
-
-### buf.pipeTo( stream [,options] )
-
-Pipe records obtained with getline to the stream.  Flow control is handled.
-The buffered data is chunked into records per the current record delimiter in
-effect, and written to the stream one record at a time.  The default records
-are "\n" newline terminated lines.  The piped records will be converted per
-the current setWriteEncoding() in effect (default `null` for Buffers).
-
-Piping continues until the stream is closed or is unpiped with `unpipeTo()`.
-Unlike streams, Qbuffer can pipeTo to only one destination at a time.  As a
-work-around, pipeTo a fanout stream that pipes to the final destinations.
-
-Qbuffers always re-split the piped data, they do not support raw pass-through.
-To pipe data in bulk without regard to record boundaries, eg fixed 100K chunks,
-specify an appropriate record delimiter `setDelimiter(102400)` along with the
-`allowFragments: true` option.
-
-Options:
-
-- `end` - end the output stream when input ends
-- `allowFragments` - also pipe any partial records at the end of the buffered data.
-  The default is to wait for a complete record before writing it to the pipe.
-
-### buf.unpipeTo( [stream] )
-
-Stop piping records to the output pipe.
-
-### buf.pause( )
-
-Suspend output streaming.  Data will be buffered until output is resumed.
-Explicit calls to read() will still return data.
-
-### buf.resume( )
-
-Resume output streaming, and immediately drain as much data as the target will
-accept.
-
 
 A Note on Piping
 ----------------
 
-Consume a stream with an on('data') event listener.  `qbuffer.pipeFrom(stream)`
-does just that.  Stream errors must be handled by the caller.
-
-The simple use case of piping streams into a qbuf is supported;
-`stream.pipe(qbuf)` arranges for on 'data' chunks to be written to qbuf.  The
-input is throttled following the highWaterMark option, and is record-based not
-bytecount-based.
+QBuffers consume a stream with an on('data') event listener.  Stream errors
+must be handled by the caller.
 
 One big benefit of piping is the built-in flow control and data throttling.
 However, qbuffers help separate variable length records.  With variable-length
@@ -238,6 +170,30 @@ This would cause deadlock.  Since only the application knows the record layout,
 the flow can only be controlled from the application, not from the data stream.
 The application can define its record structure with `setDelimiter()`, or
 can set a fixed record size for raw byte-counted binary transfers.
+
+Simple non-throttling piping is easy to do by wrapping qbuf in a Stream with eg
+`through`.  For example, to split the incoming binary stream into newline
+terminated strings using a pipe:
+
+        var QBuffer = require('qbuffer')
+        var through = require('through')
+
+        var qbuf = new QBuffer({ encoding: 'utf8', delimiter: '\n' })
+        var qbufStream = through(
+            function write(chunk, encoding) {
+                var line
+                qbuf.write(chunk, encoding)
+                while ((line = qbuf.getline()) !== null) this.emit('data', line)
+            },
+            function end( ) {
+                var line
+                while ((line = qbuf.getline()) !== null) this.emit('data', line)
+                if (qbuf.length > 0) throw new Error("incomplete line at end of input: " + qbuf.read())
+                this.emit('end')
+            }
+        )
+
+        process.stdin.pipe(qbufStream).pipe(process.stdout)
 
 
 Todo
