@@ -248,7 +248,7 @@ var QBuffer_prototype = {
     },
 }
 
-// aliases
+// aliases, for backward compatibility
 QBuffer_prototype.skipbytes = QBuffer_prototype.skip
 QBuffer_prototype.peekbytes = QBuffer_prototype.peek
 

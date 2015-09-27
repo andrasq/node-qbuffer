@@ -123,12 +123,12 @@ module.exports = {
         },
     },
 
-    'peekbytes': {
+    'peek': {
         'should return next unread bytes without consuming the data': function(t) {
             this.cut.write('test1 test2 test3')
             this.cut.read(4)
-            t.deepEqual(this.cut.peekbytes(4), new Buffer('1 te'))
-            t.deepEqual(this.cut.peekbytes(4), new Buffer('1 te'))
+            t.deepEqual(this.cut.peek(4), new Buffer('1 te'))
+            t.deepEqual(this.cut.peek(4), new Buffer('1 te'))
             t.done()
         },
     },
@@ -226,10 +226,10 @@ TBD:
 ***/
     },
 
-    'skipbytes': {
+    'skip': {
         'should advance read point': function(t) {
             this.cut.write('test1')
-            this.cut.skipbytes(3)
+            this.cut.skip(3)
             t.equal(this.cut.length, 2)
             t.equal(this.cut.read(2, 'utf8'), 't1')
             t.done()
@@ -238,7 +238,7 @@ TBD:
         'should start at read offset': function(t) {
             this.cut.write('test1 test2')
             this.cut.read(3)
-            this.cut.skipbytes(3)
+            this.cut.skip(3)
             t.equal(this.cut.length, 5)
             t.equal(this.cut.read(5, 'utf8'), 'test2')
             t.done()
@@ -248,7 +248,7 @@ TBD:
             this.cut.write('test1\n')
             this.cut.write('test2\n')
             this.cut.write('test3\n')
-            this.cut.skipbytes(15)
+            this.cut.skip(15)
             t.equal(this.cut.length, 3)
             t.equal(this.cut.read(2, 'utf8'), 't3')
             t.done()
@@ -317,7 +317,7 @@ TBD:
             this.cut.setEncoding('utf8')
             this.cut.setDelimiter(function() {
                 var nb = this.indexOfChar("."); if (nb === -1) return -1
-                return nb + 1 + parseInt(this.peekbytes(nb, 'utf8')) + 1
+                return nb + 1 + parseInt(this.peek(nb, 'utf8')) + 1
             })
             t.equal(this.cut.getline(), '1.a;')
             t.equal(this.cut.getline(), '2.bb;')
@@ -484,7 +484,7 @@ TBD:
             this.cut.write('line1\nline2')
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
-            this.cut.peekbytes(5)
+            this.cut.peek(5)
             t.equal(this.cut.chunks[0].length, 11)
             t.done()
         },
@@ -493,7 +493,7 @@ TBD:
             this.cut.write('line1\nline2')
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
-            this.cut.peekbytes(24)
+            this.cut.peek(24)
             t.equal(this.cut.chunks[0].length, 24)
             t.done()
         },
@@ -503,7 +503,7 @@ TBD:
             this.cut.write('\nline3\nline')
             this.cut.write('4\n')
             this.cut.read(18)
-            this.cut.peekbytes(6)
+            this.cut.peek(6)
             t.equal(this.cut.chunks[0].length, 24)
             t.equal(this.cut.read(6, 'utf8'), 'line4\n')
             t.done()
