@@ -71,6 +71,10 @@ The number of unread bytes currently in the buffer.
 
 Current encoding in effect
 
+### buf.chunks
+
+The buffered data chunks that hold the unread bytes.
+
 ### buf.getline( )
 
 Remove and return the next record from the buffer, or null if no complete line
