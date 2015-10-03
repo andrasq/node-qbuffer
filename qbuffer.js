@@ -125,7 +125,7 @@ var QBuffer_prototype = {
     // return the requested number of bytes or null if not that many, or everything in the buffer
     read:
     function read( nbytes, encoding, cb ) {
-        if (nbytes < 0) return null
+        if (nbytes <= 0) return null
         if (!cb && typeof encoding === 'function') { cb = encoding ; encoding = null }
         if (!cb && !encoding && typeof nbytes === 'function') { cb = nbytes ; nbytes = this.length }
         // TODO: if callback provided and no data yet, queue reader and complete read later
@@ -139,7 +139,7 @@ var QBuffer_prototype = {
 
     peek:
     function peek( nbytes, encoding ) {
-        if (nbytes < 0 || nbytes > this.length) return null
+        if (nbytes <= 0 || nbytes > this.length) return null
         var bound = nbytes + this.start
         if (bound > this.chunks[0].length) {
             // _concat: merge Buffers until bound is contained inside the first buffer
