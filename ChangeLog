@@ -1,3 +1,8 @@
+1.0.5
+
+- return null on peek(0) or read(0) to not deref non-existent chunks[0]
+- document qbuf.chunks and qbuf.ended
+
 1.0.0
 
 - removed piping and throttling to simplify the code, not really useful (see piping.js)
