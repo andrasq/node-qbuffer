@@ -75,6 +75,10 @@ Current encoding in effect
 
 The buffered data chunks that hold the unread bytes.
 
+### buf.ended
+
+`end()` has been called on the buffer, no more data can be written.
+
 ### buf.getline( )
 
 Remove and return the next record from the buffer, or null if no complete line
