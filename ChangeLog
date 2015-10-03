@@ -1,3 +1,7 @@
+1.1.0
+
+- setDecoder() method and 'decoder' constructor option
+
 1.0.5
 
 - return null on peek(0) or read(0) to not deref non-existent chunks[0]

@@ -276,6 +276,16 @@ TBD:
             t.equal(this.cut.getline(), "test1\n")
             t.done()
         },
+
+        'should apply decoder transform': function(t) {
+            var unique = Math.random() * 0x1000000 >>> 0
+            this.cut.setDecoder(function(line) { return unique + line })
+            this.cut.write("line1")
+            this.cut.write("\nline2\n")
+            t.equal(this.cut.getline(), unique + "line1\n")
+            t.equal(this.cut.getline(), unique + "line2\n")
+            t.done()
+        },
     },
 
     'setDelimiter': {

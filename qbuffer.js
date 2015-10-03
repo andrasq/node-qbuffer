@@ -18,10 +18,12 @@ function QBuffer( opts ) {
     this.highWaterMark = opts.highWaterMark || 1024000
     this.lowWaterMark = opts.lowWaterMark || 40960
     this.encoding = opts.encoding || undefined
+    this.setDecoder(opts.decoder || null)
+    this.setDelimiter(opts.delimiter || null)
+
     this.start = 0
     this.length = 0
     this.chunks = new Array()
-    this.setDelimiter(opts.delimiter || null)
 
     if (this._wrapClass) this._wrapClass()
 
@@ -38,6 +40,7 @@ var QBuffer_prototype = {
     overfull: false,                    // buffer over capacity, asked writers to throttle
     ended: false,                       // when end() has been called
     _wrapClass: null,                   // to extend the class (TBD)
+    _decodeLine: null,                  // function to decode lines into entities, for getline / peekline
 
     _drain: function() { },             // override when piping
     highWaterMark: null,                        // used for throttling
@@ -56,6 +59,12 @@ var QBuffer_prototype = {
     function _lineEnd( ) {
         if (this._lineEndLength >= 0) return this._lineEndLength
         return this._lineEndLength = this._computeLineEnd()
+    },
+
+    setDecoder:
+    function setDecoder( decoder ) {
+        this._decodeLine = decoder || function(e) { return e }
+        return this
     },
 
     setDelimiter:
@@ -112,14 +121,14 @@ var QBuffer_prototype = {
     getline:
     function getline( ) {
         var nbytes = this._lineEnd()
-        return (nbytes === -1) ? null : this.read(nbytes)
+        return (nbytes === -1) ? null : this._decodeLine(this.read(nbytes))
     },
 
     // return, but do not consume, the next record from the buffer
     peekline:
     function peekline( ) {
         var nbytes = this._lineEnd()
-        return (nbytes === -1) ? null : this.peek(nbytes, this.encoding)
+        return (nbytes === -1) ? null : this._decodeLine(this.peek(nbytes, this.encoding))
     },
 
     // return the requested number of bytes or null if not that many, or everything in the buffer

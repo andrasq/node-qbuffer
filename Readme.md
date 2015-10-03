@@ -62,6 +62,7 @@ Methods
 Options:
 - `encoding` - the default encoding to use when writing or reading strings, as set with `setEncoding()` (default 'utf8')
 - `delimiter` - record delimiter specifier, as set with `setDelimiter` (default '\n')
+- `decoder` - an entity decoder function to apply to each record returned by getline / peekline
 
 ### buf.length
 
@@ -102,6 +103,15 @@ prepended bytes.
 Set the character encoding used by default to convert binary data to strings,
 both when reading and when writing.  The encoding can also be specified call by
 call in read(), peek() and write().
+
+### buf.setDecoder( decoderFunction(line) )
+
+Specify the function to transform records returned from getline() and peekline();
+the `null` decoder restores the default.  By setting encoding to 'utf8' and decoder
+to `JSON.parse`, each getline() of a newline terminated json stream will return the
+object, not the string.  The default decoder is a pass-through, to return the
+string or Buffer unmodified.  Note that decoded data can not be returned with
+`unget()` (may error out, or silently fail with results undefined).
 
 ### buf.setDelimiter( delimiter )
 
