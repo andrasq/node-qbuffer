@@ -54,11 +54,11 @@ var QBuffer_prototype = {
     },
 
     _computeLineEnd: null,              // func to find nbytes length of next record (set by setDelimiter)
-    _lineEndLength: -1,                 // cached _lineEnd(), cleared by skip(), unget() and setDelimiter()
-    _lineEnd:                           // return the end of the next record in the data, or -1 if not yet known
-    function _lineEnd( ) {
-        if (this._lineEndLength >= 0) return this._lineEndLength
-        return this._lineEndLength = this._computeLineEnd()
+    _nextLineLength: -1,                // cached linelength(), cleared by skip(), unget() and setDelimiter()
+    linelength:                         // offset to the next record in the data, or -1 if not yet known
+    function linelength( ) {
+        if (this._nextLineLength >= 0) return this._nextLineLength
+        return this._nextLineLength = this._computeLineEnd()
     },
 
     setDecoder:
@@ -69,7 +69,7 @@ var QBuffer_prototype = {
 
     setDelimiter:
     function setDelimiter( delimiter ) {
-        this._lineEndLength = -1
+        this._nextLineLength = -1
         switch (true) {
         case delimiter === null:
         case delimiter === undefined:
@@ -109,7 +109,7 @@ var QBuffer_prototype = {
     // push data back onto the head of the queue
     unget:
     function unget( chunk, encoding ) {
-        this._lineEndLength = -1
+        this._nextLineLength = -1
         if (this.start > 0) { this.chunks[0] = this.chunks[0].slice(this.start) ; this.start = 0 }
         if (!Buffer.isBuffer(chunk)) chunk = new Buffer(chunk, encoding || this.encoding)
         this.chunks.unshift(chunk)
@@ -120,14 +120,14 @@ var QBuffer_prototype = {
     // retrieve the next record (newline-terminated string) form the buffer
     getline:
     function getline( ) {
-        var nbytes = this._lineEnd()
+        var nbytes = this.linelength()
         return (nbytes === -1) ? null : this._decodeLine(this.read(nbytes))
     },
 
     // return, but do not consume, the next record from the buffer
     peekline:
     function peekline( ) {
-        var nbytes = this._lineEnd()
+        var nbytes = this.linelength()
         return (nbytes === -1) ? null : this._decodeLine(this.peek(nbytes, this.encoding))
     },
 
@@ -232,7 +232,7 @@ var QBuffer_prototype = {
     // skip past and discard all buffered bytes until bound
     skip:
     function skip( nbytes ) {
-        this._lineEndLength = -1
+        this._nextLineLength = -1
         if (nbytes > this.length) nbytes = this.length
         var bound = nbytes + this.start
         while (this.length > 0) {

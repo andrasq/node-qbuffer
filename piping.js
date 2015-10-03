@@ -49,8 +49,9 @@ pipingMethods = {
         // otherwise might deadlock waiting for the paused data to finish arriving
         // only when we already have the next record for getline() can we throttle
 
-        // NOTE: _lineEnd() detection is O(n^2) for lines spanning multiple chunks!!
-        if (this.length > this.highWaterMark && this._lineEnd() >= 0) {
+        // NOTE: linelength() test is O(nchunks^2) for long lines!!
+        // As each new chunk arrives, the test must re-scan the entire string
+        if (this.length > this.highWaterMark && this.linelength() >= 0) {
             this.overfull = true
             return false
         }

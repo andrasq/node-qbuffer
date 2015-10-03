@@ -92,6 +92,10 @@ Just like `getline`, but do not advance the read point, do not consume the
 returned bytes.  Calling `peekline` a second time will return the same line
 again.
 
+### buf.linelength ( )
+
+Return the length in bytes of the next unread record, or -1 if not yet known.
+
 ### buf.unget( data [,encoding] )
 
 Prepend the data to the start of the buffered data.  The data may be a string

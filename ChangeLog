@@ -1,3 +1,7 @@
+1.2.0
+
+- linelength() method
+
 1.1.0
 
 - setDecoder() method and 'decoder' constructor option

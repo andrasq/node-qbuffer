@@ -288,6 +288,43 @@ TBD:
         },
     },
 
+    'peekline': {
+        'should return next unread line': function(t) {
+            this.cut.write("line1\nline2\nline")
+            this.cut.getline()
+            t.equal(this.cut.peekline(), "line2\n")
+            t.equal(this.cut.peekline(), "line2\n")
+            t.done()
+        },
+
+        'should return null when no complete lines': function(t) {
+            t.equal(this.cut.peekline(), null)
+            this.cut.write("line1")
+            t.equal(this.cut.peekline(), null)
+            t.done()
+        },
+    },
+
+    'linelength': {
+        'should return length of next line': function(t) {
+            this.cut.write("line one\nl2\nline")
+            t.equal(this.cut.linelength(), 9)
+            this.cut.getline()
+            t.equal(this.cut.linelength(), 3)
+            t.equal(this.cut.linelength(), 3)
+            this.cut.getline()
+            t.equal(this.cut.linelength(), -1)
+            t.done()
+        },
+
+        'should return -1 when no complete lines': function(t) {
+            t.equal(this.cut.linelength(), -1)
+            this.cut.write("line1")
+            t.equal(this.cut.linelength(), -1)
+            t.done()
+        },
+    },
+
     'setDelimiter': {
         'should split records on char': function(t) {
             this.cut.write("test1;test2;test\n")
