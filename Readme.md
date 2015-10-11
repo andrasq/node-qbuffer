@@ -9,6 +9,9 @@ For easier throttling and event loop control, QBuffer implements pull-based flow
 control.  It buffers incoming data on write, but reading happens when
 the code is ready for the data, not when the data happens to arrive.
 
+QBuffers deliver a byte stream.  Read/peek/write/skip access is by byte count, not
+string length.
+
 
 Summary
 -------
@@ -176,6 +179,21 @@ appended.
 
 Append an optional last chunk to the buffered data, and close the buffer.  Any
 subsequent attempt to write will throw an error or call back with error.
+
+### buf.processLines( visitor(line, cb), cb(err, count) )
+
+Pass all lines from the stream to the visitor() function until the stream end,
+and return the final success status and the count of records. processed.
+
+Visitor is passed two arguments, the record and a callback.  If visitor returns
+a processing error via the callback, it stops the processing loop.
+
+Records are retrieved with getline(), so the configured encoding and line
+decoder are utilized.  It is considered a processing error if the record
+decodes into an Error object.  The record causing an error is not consumed, and
+must be explicitly discarded by the caller for processing to be able to resume.
+
+processLines is non-blocking, it yields to the event loop every 20 lines.
 
 
 A Note on Piping

@@ -255,6 +255,28 @@ var QBuffer_prototype = {
             }
         }
     },
+
+    /**
+     * Run all newline-terminated lines in the file through the visitor() function.
+     * Processing errors from visitor() or decoding errors stop the loop, leaving
+     * the breaking line in the buffer.
+     */
+    processLines:
+    function processLines( visitor, callback ) {
+        var self = this, lineCount = 0, nlines = 0, line
+        (function processLine() {
+            line = self.peekline();
+            if (!line) return self.ended ? callback(null, lineCount) : (nlines = 0, setTimeout(processLine, 1))
+            else if (line instanceof Error) return callback(line, lineCount)
+            visitor(line, function(err) {
+                if (err) return callback(err, lineCount)
+                lineCount += 1
+                self.skip(self.linelength())
+                // yield to the event loop every batch of 20 lines
+                return nlines++ < 20 ? processLine() : (nlines = 0, setImmediate(processLine))
+            })
+        })()
+    },
 }
 
 // aliases, for backward compatibility

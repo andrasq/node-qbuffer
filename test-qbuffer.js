@@ -10,6 +10,7 @@ fs = require('fs')
 var QBuffer = require('./index')
 var Stream = require('stream')
 
+var setImmediate = global.setImmediate || process.nextTick
 
 // build a stream that will emit the given chunks of data
 function streamTestData( stream, chunks ) {
@@ -558,6 +559,31 @@ TBD:
     },
 
     'operational tests': {
+        'processLines should return all lines': function(t) {
+            var qbuf = this.cut
+            var data = "", nlines = 10000
+            for (var i=0; i<nlines; i++) data += "middling length test line number " + i + "\n"
+            fs.writeFileSync("/tmp/unit-qbuffer.tmp", data)
+            var stream = fs.createReadStream("/tmp/unit-qbuffer.tmp")
+                .on('data', function(chunk) { qbuf.write(chunk) })
+                .on('end', function() { qbuf.end() })
+                .on('error', function() { t.ifError(err) })
+            var lines = [];
+            var yieldCount = 0, yieldLoop = setImmediate(function yield(){ yieldCount += 1; setImmediate(yield) });
+            qbuf.processLines(function(line, cb) {
+                lines.push(line);
+                cb();
+            }, function(err, lineCount) {
+                if (global.clearImmediate) clearImmediate(yieldLoop);
+                fs.unlinkSync("/tmp/unit-qbuffer.tmp");
+                t.equal(lineCount, nlines);
+                t.equal(lines.length, nlines);
+                t.equal(lines.join(''), data);
+                t.ok(yieldCount > nlines/100);
+                t.done();
+            });
+        },
+
         'fuzz test with lines in random size chunks': function(t) {
             var i, j, testString = "", testChunks = []
             for (i=0; i<10000; i++) testString += "test line " + i + "\n"
