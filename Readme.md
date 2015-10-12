@@ -183,15 +183,15 @@ subsequent attempt to write will throw an error or call back with error.
 ### buf.processLines( visitor(line, cb), cb(err, count) )
 
 Pass all lines from the stream to the visitor() function until the stream end,
-and return the final success status and the count of records. processed.
+and return the final success status and the count of records processed.
 
 Visitor is passed two arguments, the record and a callback.  If visitor returns
 a processing error via the callback, it stops the processing loop.
 
-Records are retrieved with getline(), so the configured encoding and line
+Records are retrieved with getline(), so the configured encoding and record
 decoder are utilized.  It is considered a processing error if the record
 decodes into an Error object.  The record causing an error is not consumed, and
-must be explicitly discarded by the caller for processing to be able to resume.
+must be explicitly discarded by the caller for processing to be able to continue.
 
 processLines is non-blocking, it yields to the event loop every 20 lines.
 
