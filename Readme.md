@@ -23,7 +23,7 @@ To extract json lines from an http response body:
         var QBuffer = require('qbuffer')
 
         var qbuf = new QBuffer()
-        http.request("http://example.com/get/json/lines", function(res) {
+        var req = http.request("http://example.com/get/json/lines", function(res) {
             res.on('data', function(chunk) {
                 qbuf.write(chunk)
             })
@@ -35,15 +35,16 @@ To extract json lines from an http response body:
                 assert(qbuf.length === 0)
             })
         })
+        req.end()
 
 To extract bson buffers from a stream:
 
         var qbuf = new QBuffer()
-        qbuf.setReadEncoding('utf8')
+        qbuf.setReadEncoding(null)
         qbuf.setDelimiter(function() {
             if (this.length <= 4) return -1
             var len = this.peek(4)
-            return len[0] + len[1] * 256 + len[2] * 65536 + len[3] * 16777216
+            return len[0] + len[1]*256 + len[2]*65536 + len[3]*16777216
         })
 
         var line, bsonArray = []
@@ -191,7 +192,7 @@ a processing error via the callback, it stops the processing loop.
 Records are retrieved with getline(), so the configured encoding and record
 decoder are utilized.  It is considered a processing error if the record
 decodes into an Error object.  The record causing an error is not consumed, and
-must be explicitly discarded by the caller for processing to be able to continue.
+must be explicitly discarded by the caller for processing to advance past it.
 
 processLines is non-blocking, it yields to the event loop every 20 lines.
 
