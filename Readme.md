@@ -40,7 +40,7 @@ To extract json lines from an http response body:
 To extract bson buffers from a stream:
 
         var qbuf = new QBuffer()
-        qbuf.setReadEncoding(null)
+        qbuf.setEncoding(null)
         qbuf.setDelimiter(function() {
             if (this.length <= 4) return -1
             var len = this.peek(4)
