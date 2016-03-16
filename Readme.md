@@ -132,7 +132,9 @@ Delimiter can be
   part of the record, and is returned in the data
 - `number` length for fixed length records.
 - `function` that returns the computed length of the record.  The delimiter
-  function is invoked as a method call with `this` set to the qbuffer instance
+  function is invoked as a method call with `this` set to the qbuffer instance,
+  and should return the number of bytes from the current read position to the
+  start of the next record, or -1 if not known
 - `null` to restore the built-in default of newline terminated strings
 
 ### buf.read( [nbytes] [,encoding] )
