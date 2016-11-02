@@ -17,7 +17,7 @@ function QBuffer( opts ) {
     opts = opts || {}
     this.highWaterMark = opts.highWaterMark || 1024000
     this.lowWaterMark = opts.lowWaterMark || 40960
-    this.encoding = opts.encoding || undefined
+    this.encoding = opts.encoding || null
     this.setDecoder(opts.decoder || null)
     this.setDelimiter(opts.delimiter || null)
 

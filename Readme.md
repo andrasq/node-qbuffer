@@ -64,7 +64,7 @@ Methods
 ### new QBuffer( opts )
 
 Options:
-- `encoding` - the default encoding to use when writing or reading strings, as set with `setEncoding()` (default 'utf8')
+- `encoding` - the default encoding to use when writing or reading strings, as set with `setEncoding()`.  Use `null` to get Buffer slices. (default `null`)
 - `delimiter` - record delimiter specifier, as set with `setDelimiter` (default '\n')
 - `decoder` - an entity decoder function to apply to each record returned by getline / peekline
 
@@ -246,6 +246,8 @@ Todo
 - more unit tests
 - emitTo(writeFunc, endFunc) method to pipe records to code
 - expose _lineEnd()
+- copy() and copyout() methods for buffer-to-buffer transfers
+- benchmark suite
 
 
 Related Work
