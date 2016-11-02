@@ -1,3 +1,8 @@
+1.4.0
+
+- test with qnit
+- fix documentation to reflect that default encoding is `null`
+
 1.3.0
 
 - processLines() method
