@@ -2,12 +2,12 @@
   "name": "qbuffer",
   "version": "1.4.0",
   "description": "quick buffer to combine and re-split binary streams",
+  "main": "index.js",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git://github.com/andrasq/node-qbuffer"
   },
-  "main": "index.js",
   "author": {
     "name": "Andras",
     "url": "http://github.com/andrasq"
@@ -16,7 +16,9 @@
     "node": ">=0.8.0"
   },
   "scripts": {
-    "test": "qunit test-speed.js test-qbuffer.js"
+    "test": "qnit test-qbuffer.js",
+    "coverage": "nyc --reporter lcov --reporter text npm test",
+    "clean": "rm -rf .nyc_output/ coverage/"
   },
   "keywords": [
     "Andras", "quick", "chunked", "binary", "data", "split", "getline"
